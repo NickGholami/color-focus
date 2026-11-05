@@ -192,6 +192,20 @@ test('installer: Codex hooks + skill, alongside Claude Code; removing one keeps 
   execFileSync(process.execPath, [hookCmd], { env, input: JSON.stringify({ ...base('PreToolUse'), tool_name: 'Bash', tool_input: { command: '~/.color-focus/bin/color-focus start "Task 5"' } }) });
   assert.strictEqual(active().label, 'Task 5');
 
+  // An older copy of the extension (e.g. in another VS Code window) leaves newer scripts alone.
+  const refresh = () => execFileSync(process.execPath, ['-e', `console.log(require(${JSON.stringify(path.join(dir, 'install.js'))}).refresh())`], { env, encoding: 'utf8' }).trim();
+  const versionFile = path.join(env.COLOR_FOCUS_HOME, 'bin', 'VERSION');
+  assert.strictEqual(fs.readFileSync(versionFile, 'utf8').trim(), require('../package.json').version);
+  fs.writeFileSync(versionFile, '99.0.0\n');
+  fs.appendFileSync(hookCmd, '// newer\n');
+  assert.strictEqual(refresh(), 'false');
+  assert.match(fs.readFileSync(hookCmd, 'utf8'), /\/\/ newer/);
+  fs.writeFileSync(versionFile, '0.9.0\n'); // installed by an older version: brought up to date
+  assert.strictEqual(refresh(), 'true');
+  assert.doesNotMatch(fs.readFileSync(hookCmd, 'utf8'), /\/\/ newer/);
+  const { isOlder } = require('../claude/install');
+  assert.ok(isOlder('1.1.0', '1.2.0') && isOlder('1.9.0', '1.10.0') && !isOlder('1.1.0', '1.1.0') && !isOlder('2.0.0', '1.9.9'));
+
   run('uninstall', 'codex');
   assert.deepStrictEqual(JSON.parse(fs.readFileSync(hooksFile, 'utf8')), mine);
   assert.ok(!fs.existsSync(path.join(env.COLOR_FOCUS_AGENTS_SKILLS, 'color-focus')));

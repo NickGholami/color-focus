@@ -74,7 +74,7 @@ The agent's highlights always have a label. If it later changes code from an ear
 | Agent | Steps |
 | --- | --- |
 | **Claude Code** | Command Palette → **Color Focus: Set Up Claude Code Integration…** → restart Claude Code. |
-| **Codex** (app, CLI or IDE extension) | Command Palette → **Color Focus: Set Up Codex Integration…** → restart Codex. Codex only runs hooks you've approved: the first time, review and trust the Color Focus hook when Codex asks, or with `/hooks` in Codex. |
+| **Codex** (app, CLI or IDE extension) | Command Palette → **Color Focus: Set Up Codex Integration…** → restart Codex → when Codex shows **Review hooks**, click **Allow all** (or allow them later in Codex's settings, or with `/hooks` in the CLI). Codex skips hooks until you allow them, so nothing is highlighted before that. |
 
 Use both if you like; they share the same labels. Run a setup command again to reinstall or remove it.
 

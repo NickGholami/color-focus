@@ -36,6 +36,21 @@ const AGENTS = {
   },
 };
 const EVENTS = ['PreToolUse', 'PostToolUse'];
+
+/** This extension's version. Installed scripts remember it, so an older copy never overwrites newer ones. */
+const VERSION = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(HERE, '..', 'package.json'), 'utf8')).version;
+  } catch {
+    return '0.0.0';
+  }
+})();
+const versionParts = (v) => String(v || '0').trim().split('.').map((n) => parseInt(n, 10) || 0);
+function isOlder(a, b) {
+  const [x, y] = [versionParts(a), versionParts(b)];
+  for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0);
+  return false;
+}
 const ours = (command) => String(command || '').includes('.color-focus') || String(command || '').includes(HOOK);
 
 function agentOf(id) {
@@ -105,6 +120,7 @@ function copyScripts(node) {
   };
   for (const f of ['common.js', 'hook.js', 'color-focus.js']) put(f, fs.readFileSync(path.join(HERE, f), 'utf8'));
   put('linediff.js', fs.readFileSync(linediffPath(), 'utf8'));
+  put('VERSION', VERSION + '\n');
   if (node) {
     put('color-focus', `#!/bin/sh\nexec "${node}" "$(dirname "$0")/color-focus.js" "$@"\n`, 0o755);
     put('color-focus.cmd', `@"${node}" "%~dp0color-focus.js" %*\r\n`);
@@ -154,6 +170,10 @@ function isInstalled(agentId = 'claude') {
 function refresh() {
   const installed = Object.keys(AGENTS).filter(isInstalled);
   if (!installed.length) return false;
+  // Another VS Code window may still run an older version of the extension: leave newer scripts alone.
+  let theirs = '0.0.0';
+  try { theirs = fs.readFileSync(path.join(BIN, 'VERSION'), 'utf8'); } catch {}
+  if (isOlder(VERSION, theirs)) return false;
   let node = null;
   try { node = /exec "([^"]+)"/.exec(fs.readFileSync(path.join(BIN, 'color-focus'), 'utf8'))[1]; } catch {}
   const changed = copyScripts(node);
@@ -164,7 +184,7 @@ function refresh() {
   return changed;
 }
 
-module.exports = { AGENTS, install, uninstall, isInstalled, refresh, findNode, BIN };
+module.exports = { AGENTS, install, uninstall, isInstalled, refresh, findNode, isOlder, BIN, VERSION };
 
 if (require.main === module) {
   const [cmd = 'install', agentId = 'claude'] = process.argv.slice(2);

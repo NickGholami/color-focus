@@ -6,7 +6,9 @@ const installer = require('../claude/install');
 
 const RESTART = {
   claude: 'Restart Claude Code',
-  codex: 'Restart Codex. The first time, Codex asks you to review the new hook: trust it (or use /hooks in Codex)',
+  codex:
+    'Restart Codex and click "Allow all" when it shows "Review hooks" (or allow them in Codex\'s settings). ' +
+    'Codex skips hooks until you allow them',
 };
 
 async function setUp(_ctx, agentId = 'claude') {
