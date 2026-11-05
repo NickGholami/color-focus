@@ -152,10 +152,22 @@ function remapByDiff(highlights, oldText, newText) {
     const prevNew = s.line > 0 && before[s.line - 1] >= 0 ? newOf(before[s.line - 1]) : -1;
     const nextNew = e.line + 1 < O.lines.length && after[e.line + 1] >= 0 ? newOf(after[e.line + 1]) : N.lines.length;
 
+    // Is the line just outside the block unchanged? Then lines replacing the block's edge all belong to the block.
+    const edgeBefore = s.line === 0 || toNew[s.line - 1] >= 0;
+    const edgeAfter = e.line === O.lines.length - 1 || toNew[e.line + 1] >= 0;
+
     let ns, ne;
     if (first >= 0) {
-      ns = Math.max(prevNew + 1, toNew[first] - (first - s.line));
-      ne = Math.min(nextNew - 1, toNew[last] + (e.line - last));
+      // Block starts/ends on an unchanged line: keep it there (lines added right outside don't join).
+      // Block's first/last lines were replaced: take all their replacement lines, e.g. a function body
+      // that grew from 2 to 8 lines. If the replaced stretch also reaches outside the block, take a
+      // proportional share instead.
+      if (first === s.line) ns = toNew[first];
+      else if (edgeBefore) ns = prevNew + 1;
+      else ns = Math.max(prevNew + 1, toNew[first] - (first - s.line));
+      if (last === e.line) ne = toNew[last];
+      else if (edgeAfter) ne = nextNew - 1;
+      else ne = Math.min(nextNew - 1, toNew[last] + (e.line - last));
     } else {
       // Every line of the block changed: take the matching stretch of the replacement.
       const gapOldStart = s.line > 0 && before[s.line - 1] >= 0 ? before[s.line - 1] + 1 : 0;

@@ -511,7 +511,7 @@
   },
   "scripts": {
     "package": "vsce package",
-    "test": "node --test test/ranges.test.js test/linediff.test.js test/claude.test.js",
+    "test": "node --test test/ranges.test.js test/linediff.test.js test/claude.test.js test/replay.test.js",
     "test:integration": "node test/integration/run.js",
     "test:keys": "node test/keys/run.js",
     "screenshots": "node test/screenshots/run.js"
