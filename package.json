@@ -1,0 +1,514 @@
+{
+  "name": "color-focus",
+  "displayName": "Color Focus",
+  "description": "Highlight blocks of code with colors and labels, then focus on them, fold them, or stack them from every file into one view. Works in every language.",
+  "version": "1.0.0",
+  "publisher": "nickspc",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NickGholami/color-focus.git"
+  },
+  "bugs": {
+    "url": "https://github.com/NickGholami/color-focus/issues"
+  },
+  "homepage": "https://github.com/NickGholami/color-focus#readme",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#1e2230",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Visualization",
+    "Education",
+    "Other"
+  ],
+  "keywords": [
+    "highlight",
+    "color",
+    "colour",
+    "regions",
+    "colored regions",
+    "background",
+    "focus",
+    "focus mode",
+    "label",
+    "tag",
+    "annotate",
+    "bookmark",
+    "mark",
+    "fold",
+    "exercise",
+    "study",
+    "review",
+    "notes"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "colorFocus.highlight",
+        "title": "Highlight Selection With Color…",
+        "category": "Color Focus",
+        "icon": "$(symbol-color)"
+      },
+      {
+        "command": "colorFocus.setLabel",
+        "title": "Add/Remove Labels…",
+        "category": "Color Focus",
+        "icon": "$(tag)"
+      },
+      {
+        "command": "colorFocus.removeAtCursor",
+        "title": "Remove Highlight at Cursor",
+        "category": "Color Focus"
+      },
+      {
+        "command": "colorFocus.clearFile",
+        "title": "Clear All Highlights in This File",
+        "category": "Color Focus"
+      },
+      {
+        "command": "colorFocus.focus",
+        "title": "Focus on Color or Label…",
+        "category": "Color Focus",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "colorFocus.exitFocus",
+        "title": "Exit Focus Mode",
+        "category": "Color Focus",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "colorFocus.next",
+        "title": "Go to Next Highlight",
+        "category": "Color Focus"
+      },
+      {
+        "command": "colorFocus.previous",
+        "title": "Go to Previous Highlight",
+        "category": "Color Focus"
+      },
+      {
+        "command": "colorFocus.list",
+        "title": "List Highlights in This File…",
+        "category": "Color Focus"
+      },
+      {
+        "command": "colorFocus.showBlocks",
+        "title": "Show Highlighted Blocks Only…",
+        "category": "Color Focus",
+        "icon": "$(list-flat)"
+      },
+      {
+        "command": "colorFocus.goToSource",
+        "title": "Go to Original Code of This Block",
+        "category": "Color Focus"
+      },
+      {
+        "command": "colorFocus.openSource",
+        "title": "Open Original Code",
+        "category": "Color Focus"
+      },
+      {
+        "command": "colorFocus.foldAll",
+        "title": "Fold All Highlighted Blocks",
+        "category": "Color Focus"
+      },
+      {
+        "command": "colorFocus.unfoldAll",
+        "title": "Unfold All Highlighted Blocks",
+        "category": "Color Focus"
+      },
+      {
+        "command": "colorFocus.removeInFolder",
+        "title": "Remove Highlights…",
+        "category": "Color Focus",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "colorFocus.renameLabel",
+        "title": "Rename Label…",
+        "category": "Color Focus",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "colorFocus.stopJumping",
+        "title": "Stop Jumping Between Highlights",
+        "category": "Color Focus"
+      },
+      {
+        "command": "colorFocus.toggleFold",
+        "title": "Fold/Unfold Highlighted Block",
+        "category": "Color Focus"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "colorFocus.highlight",
+          "when": "editorHasSelection",
+          "group": "colorFocus@1"
+        },
+        {
+          "command": "colorFocus.setLabel",
+          "group": "colorFocus@1"
+        },
+        {
+          "command": "colorFocus.removeAtCursor",
+          "group": "colorFocus@2"
+        },
+        {
+          "command": "colorFocus.focus",
+          "when": "!colorFocus.focusActive",
+          "group": "colorFocus@3"
+        },
+        {
+          "command": "colorFocus.exitFocus",
+          "when": "colorFocus.focusActive",
+          "group": "colorFocus@3"
+        },
+        {
+          "command": "colorFocus.showBlocks",
+          "when": "resourceScheme != colorfocus-blocks",
+          "group": "colorFocus@4"
+        },
+        {
+          "command": "colorFocus.goToSource",
+          "when": "resourceScheme == colorfocus-blocks",
+          "group": "navigation@0"
+        },
+        {
+          "command": "colorFocus.renameLabel",
+          "when": "resourceScheme != colorfocus-blocks",
+          "group": "colorFocus@5"
+        },
+        {
+          "command": "colorFocus.removeInFolder",
+          "when": "resourceScheme != colorfocus-blocks",
+          "group": "colorFocus@6"
+        },
+        {
+          "command": "colorFocus.toggleFold",
+          "when": "resourceScheme != colorfocus-blocks",
+          "group": "colorFocus@2"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "colorFocus.highlight",
+          "when": "editorHasSelection",
+          "group": "navigation@90"
+        },
+        {
+          "command": "colorFocus.focus",
+          "when": "!colorFocus.focusActive",
+          "group": "navigation@91"
+        },
+        {
+          "command": "colorFocus.exitFocus",
+          "when": "colorFocus.focusActive",
+          "group": "navigation@91"
+        },
+        {
+          "command": "colorFocus.showBlocks",
+          "when": "resourceScheme != colorfocus-blocks",
+          "group": "navigation@92"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "colorFocus.openSource",
+          "when": "false"
+        },
+        {
+          "command": "colorFocus.goToSource",
+          "when": "resourceScheme == colorfocus-blocks"
+        },
+        {
+          "command": "colorFocus.stopJumping",
+          "when": "colorFocus.jumping"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "colorFocus.removeInFolder",
+          "group": "7_colorFocus@1"
+        },
+        {
+          "command": "colorFocus.renameLabel",
+          "group": "7_colorFocus@2"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "colorFocus.toggleFold",
+        "key": "ctrl+alt+c",
+        "mac": "alt+tab c",
+        "when": "editorTextFocus && resourceScheme != colorfocus-blocks"
+      },
+      {
+        "command": "colorFocus.toggleFold",
+        "key": "ctrl+alt+c",
+        "mac": "alt+tab alt+c",
+        "when": "editorTextFocus && resourceScheme != colorfocus-blocks"
+      },
+      {
+        "command": "colorFocus.highlight",
+        "key": "ctrl+alt+h",
+        "mac": "alt+tab h",
+        "when": "editorTextFocus && editorHasSelection"
+      },
+      {
+        "command": "colorFocus.highlight",
+        "key": "ctrl+alt+h",
+        "mac": "alt+tab alt+h",
+        "when": "editorTextFocus && editorHasSelection"
+      },
+      {
+        "command": "colorFocus.removeAtCursor",
+        "key": "ctrl+alt+x",
+        "mac": "alt+tab x",
+        "when": "editorTextFocus && resourceScheme != colorfocus-blocks"
+      },
+      {
+        "command": "colorFocus.removeAtCursor",
+        "key": "ctrl+alt+x",
+        "mac": "alt+tab alt+x",
+        "when": "editorTextFocus && resourceScheme != colorfocus-blocks"
+      },
+      {
+        "command": "colorFocus.setLabel",
+        "key": "ctrl+alt+l",
+        "mac": "alt+tab l",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "colorFocus.setLabel",
+        "key": "ctrl+alt+l",
+        "mac": "alt+tab alt+l",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "colorFocus.focus",
+        "key": "ctrl+alt+f",
+        "mac": "alt+tab f",
+        "when": "!colorFocus.focusActive && !inQuickOpen"
+      },
+      {
+        "command": "colorFocus.focus",
+        "key": "ctrl+alt+f",
+        "mac": "alt+tab alt+f",
+        "when": "!colorFocus.focusActive && !inQuickOpen"
+      },
+      {
+        "command": "colorFocus.exitFocus",
+        "key": "ctrl+alt+f",
+        "mac": "alt+tab f",
+        "when": "colorFocus.focusActive && !inQuickOpen"
+      },
+      {
+        "command": "colorFocus.exitFocus",
+        "key": "ctrl+alt+f",
+        "mac": "alt+tab alt+f",
+        "when": "colorFocus.focusActive && !inQuickOpen"
+      },
+      {
+        "command": "colorFocus.showBlocks",
+        "key": "ctrl+alt+b",
+        "mac": "alt+tab b",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "colorFocus.showBlocks",
+        "key": "ctrl+alt+b",
+        "mac": "alt+tab alt+b",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "colorFocus.next",
+        "key": "ctrl+alt+]",
+        "mac": "alt+tab down",
+        "when": "editorIsOpen && !inQuickOpen"
+      },
+      {
+        "command": "colorFocus.next",
+        "key": "ctrl+alt+]",
+        "mac": "alt+tab alt+down",
+        "when": "editorIsOpen && !inQuickOpen"
+      },
+      {
+        "command": "colorFocus.previous",
+        "key": "ctrl+alt+[",
+        "mac": "alt+tab up",
+        "when": "editorIsOpen && !inQuickOpen"
+      },
+      {
+        "command": "colorFocus.previous",
+        "key": "ctrl+alt+[",
+        "mac": "alt+tab alt+up",
+        "when": "editorIsOpen && !inQuickOpen"
+      },
+      {
+        "command": "colorFocus.exitFocus",
+        "key": "escape",
+        "when": "editorTextFocus && colorFocus.focusActive && !editorHasSelection && !suggestWidgetVisible && !findWidgetVisible"
+      },
+      {
+        "command": "colorFocus.goToSource",
+        "key": "f12",
+        "when": "editorTextFocus && resourceScheme == colorfocus-blocks"
+      },
+      {
+        "command": "colorFocus.goToSource",
+        "key": "enter",
+        "when": "editorTextFocus && resourceScheme == colorfocus-blocks"
+      },
+      {
+        "command": "colorFocus.next",
+        "key": "down",
+        "when": "colorFocus.jumping && editorTextFocus && !suggestWidgetVisible && !parameterHintsVisible"
+      },
+      {
+        "command": "colorFocus.previous",
+        "key": "up",
+        "when": "colorFocus.jumping && editorTextFocus && !suggestWidgetVisible && !parameterHintsVisible"
+      },
+      {
+        "command": "colorFocus.stopJumping",
+        "key": "escape",
+        "when": "colorFocus.jumping && editorTextFocus"
+      },
+      {
+        "command": "colorFocus.next",
+        "key": "alt+down",
+        "when": "colorFocus.focusActive && editorTextFocus"
+      },
+      {
+        "command": "colorFocus.previous",
+        "key": "alt+up",
+        "when": "colorFocus.focusActive && editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "Color Focus",
+      "properties": {
+        "colorFocus.colors": {
+          "type": "array",
+          "description": "Colors offered when highlighting. Use any CSS color (hex, rgb, named).",
+          "default": [
+            {
+              "name": "Red",
+              "color": "#ff5c5c"
+            },
+            {
+              "name": "Orange",
+              "color": "#ff9f43"
+            },
+            {
+              "name": "Yellow",
+              "color": "#ffd93d"
+            },
+            {
+              "name": "Green",
+              "color": "#6bcb77"
+            },
+            {
+              "name": "Teal",
+              "color": "#2ec4b6"
+            },
+            {
+              "name": "Blue",
+              "color": "#4d96ff"
+            },
+            {
+              "name": "Purple",
+              "color": "#9b5de5"
+            },
+            {
+              "name": "Pink",
+              "color": "#f15bb5"
+            },
+            {
+              "name": "Gray",
+              "color": "#9e9e9e"
+            }
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "color": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "color"
+            ]
+          }
+        },
+        "colorFocus.backgroundOpacity": {
+          "type": "number",
+          "default": 0.22,
+          "minimum": 0.02,
+          "maximum": 1,
+          "description": "How strong the background color is (0–1). Applies to hex colors."
+        },
+        "colorFocus.wholeLine": {
+          "type": "boolean",
+          "default": true,
+          "description": "Color full lines (edge to edge) instead of only the selected characters."
+        },
+        "colorFocus.dimOpacity": {
+          "type": "number",
+          "default": 0.2,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Opacity of code outside the focused color while focus mode is on (0 = invisible, 1 = normal)."
+        },
+        "colorFocus.showInOverviewRuler": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show highlight markers in the scrollbar."
+        },
+        "colorFocus.askForLabel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask for optional labels after picking a color. Press Enter to skip."
+        },
+        "colorFocus.showLabels": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show labels as text at the end of the first line of each labeled block."
+        },
+        "colorFocus.foldable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow folding highlighted blocks (Option+Tab, then C). A block gets its fold arrow the first time you fold it."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "package": "vsce package",
+    "test": "node --test test/ranges.test.js",
+    "test:integration": "node test/integration/run.js",
+    "test:keys": "node test/keys/run.js",
+    "screenshots": "node test/screenshots/run.js"
+  },
+  "devDependencies": {
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.0.0"
+  }
+}

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a3042"/>
+      <stop offset="1" stop-color="#171a24"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+
+  <!-- dimmed code above -->
+  <rect x="40" y="36" width="110" height="10" rx="5" fill="#5b6275" opacity="0.55"/>
+  <rect x="24" y="58" width="208" height="26" rx="7" fill="#ff9f43" opacity="0.22"/>
+  <rect x="40" y="66" width="140" height="10" rx="5" fill="#ff9f43" opacity="0.6"/>
+
+  <!-- focused block -->
+  <rect x="24" y="96" width="208" height="64" rx="9" fill="#6bcb77" opacity="0.30"/>
+  <rect x="24" y="96" width="8" height="64" rx="4" fill="#6bcb77"/>
+  <rect x="44" y="108" width="132" height="12" rx="6" fill="#f4f7fb"/>
+  <rect x="60" y="136" width="104" height="12" rx="6" fill="#f4f7fb"/>
+
+  <!-- dimmed code below -->
+  <rect x="24" y="172" width="208" height="26" rx="7" fill="#4d96ff" opacity="0.22"/>
+  <rect x="40" y="180" width="96" height="10" rx="5" fill="#4d96ff" opacity="0.6"/>
+  <rect x="40" y="210" width="72" height="10" rx="5" fill="#5b6275" opacity="0.55"/>
+
+  <!-- focus brackets around the bright block -->
+  <g fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 106 V88 H32"/>
+    <path d="M224 88 H242 V106"/>
+    <path d="M14 150 V168 H32"/>
+    <path d="M224 168 H242 V150"/>
+  </g>
+</svg>

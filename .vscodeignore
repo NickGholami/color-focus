@@ -1,0 +1,7 @@
+.vscode/**
+test/**
+node_modules/**
+*.vsix
+images/logo.svg
+DEVELOPMENT.md
+.gitignore
