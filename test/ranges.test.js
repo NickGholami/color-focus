@@ -96,3 +96,23 @@ test('colors', () => {
   assert.strictEqual(R.swatch('#4d96ff'), '🔵');
   assert.strictEqual(R.swatch('#9e9e9e'), '⚪');
 });
+
+test('addLabeled: overlapping code keeps its labels and gets the new one', () => {
+  const ex2 = { id: 'a', start: 10, end: 50, color: 'yellow', labels: ['Exercise 2'] };
+  const out = R.addLabeled([ex2], 20, 70, 'teal', ['Exercise 3']);
+  assert.deepStrictEqual(out.map(({ id, ...h }) => h), [
+    { start: 10, end: 20, color: 'yellow', labels: ['Exercise 2'] },
+    { start: 20, end: 50, color: 'teal', labels: ['Exercise 2', 'Exercise 3'] },
+    { start: 50, end: 70, color: 'teal', labels: ['Exercise 3'] },
+  ]);
+  assert.strictEqual(out[0].id, 'a', 'the remaining part keeps its id');
+});
+
+test('addLabeled: same label again changes nothing; line breaks between blocks are not colored', () => {
+  const h = { id: 'a', start: 0, end: 9, color: 'red', labels: ['x'] };
+  assert.deepStrictEqual(R.addLabeled([h], 0, 9, 'blue', ['x']), [h]);
+  const a = { id: 'a', start: 0, end: 9, color: 'red', labels: ['x'] };
+  const b = { id: 'b', start: 10, end: 19, color: 'red', labels: ['y'] };
+  const out = R.addLabeled([a, b], 0, 19, 'blue', ['z']);
+  assert.deepStrictEqual(out.map((h) => [h.start, h.end, h.labels.join('+')]), [[0, 9, 'x+z'], [10, 19, 'y+z']]);
+});

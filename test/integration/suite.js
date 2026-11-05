@@ -391,5 +391,52 @@ exports.run = async () => {
     assert.strictEqual(api.testHooks.highlights(doc2)[0].color, ex2.color, 'same label, same color');
   });
 
+  // --- every highlight has a label ---
+  await check('Claude changing code from an earlier exercise adds its label instead of replacing it', async () => {
+    const f = path.join(root(), 'twice.py');
+    fs.writeFileSync(f, 'def best():\n    return 1\n\nx = 0\n');
+    const req = (labels, text, n) => fs.writeFileSync(path.join(home, 'inbox', `00000000000000${n}-t.json`), JSON.stringify({ file: f, labels, blocks: [{ line: 0, text }] }));
+    req(['Exercise 2'], 'def best():\n    return 1', 2);
+    await api.testHooks.inbox.flush();
+    fs.writeFileSync(f, 'def best():\n    return 2\n\nx = 0\n');
+    const doc = await vscode.workspace.openTextDocument(f);
+    await waitFor(() => doc.getText().includes('return 2'));
+    req(['Exercise 3'], '    return 2', 3);
+    await api.testHooks.inbox.flush();
+    await waitFor(() => api.testHooks.highlights(doc).length > 1);
+    const got = api.testHooks.highlights(doc).map((h) => { const r = api.testHooks.toRange(doc, h); return `${r.start.line}-${r.end.line}:${h.labels.join('+')}`; });
+    assert.deepStrictEqual(got, ['0-0:Exercise 2', '1-1:Exercise 2+Exercise 3']);
+  });
+
+  await check('the label picker does not finish without a label (also when only a color is given)', async () => {
+    const ed = await open('rm.txt');
+    ed.selection = new vscode.Selection(0, 0, 0, 1);
+    const before = api.testHooks.highlights(ed.document).length;
+    const done = vscode.commands.executeCommand('colorFocus.highlight', { color: '#ff5c5c' });
+    await sleep(600);
+    const qp = api.testHooks.labelPicker;
+    await vscode.commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem'); await sleep(400);
+    assert.match(qp.title, /at least one label/);
+    qp.value = 'needed'; await sleep(300);
+    await vscode.commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem'); await sleep(300);
+    qp.value = ''; await sleep(200);
+    await vscode.commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
+    await done; await sleep(500);
+    const hs = api.testHooks.highlights(ed.document);
+    assert.strictEqual(hs.length, before + 1);
+    assert.ok(hs.every((h) => h.labels && h.labels.length));
+  });
+
+  await check('removing the only label of a block removes the block', async () => {
+    const f = path.join(root(), 'only.txt');
+    fs.writeFileSync(f, 'a\nb\nc\nd\n');
+    const ed = await open('only.txt');
+    await highlight(ed, 0, 0, '#ff5c5c', ['gone']);
+    await highlight(ed, 2, 2, '#ff5c5c', ['gone', 'stays']);
+    await vscode.commands.executeCommand('colorFocus.removeInFolder', { file: f, label: 'gone', labelOnly: true, confirm: false });
+    await sleep(600);
+    assert.deepStrictEqual(api.testHooks.highlights(ed.document).map((h) => h.labels), [['stays']]);
+  });
+
   require('fs').writeFileSync(path.join(require('os').tmpdir(), 'color-focus-results.txt'), results.join('\n') + '\n');
 };

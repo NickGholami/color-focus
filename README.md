@@ -25,7 +25,7 @@ Select lines → **Option+Tab, then H** (Windows/Linux: **Ctrl+Alt+H**) → pick
 
 ### Labels, as many as you need
 
-After picking a color you can give the block one or more labels, e.g. `exercise 2` and `check later`. Labels show at the end of the block's first line and when you hover over the block. Labels you used before are offered again, in every file.
+After picking a color you give the block one or more labels, e.g. `exercise 2` and `check later`. Every highlight has at least one label, so you can always find, focus on and clean up blocks by label. Labels show at the end of the block's first line and when you hover over the block. Labels you used before are offered again, in every file.
 
 Change them any time: cursor in the block → **Option+Tab, then L** (Windows/Linux: **Ctrl+Alt+L**).
 
@@ -63,7 +63,7 @@ If you use [Claude Code](https://claude.com/claude-code), Color Focus can highli
 >
 > Claude writes the code, and in VS Code every new or changed block is colored and labeled **Exercise 3**.
 
-Each exercise gets its own color, and everything above works with them: focus on "Exercise 3", stack all its blocks from every file, fold them, or rename the label.
+Each exercise gets its own color. If Claude later changes code from an earlier exercise, that code keeps its old label and gets the new one too, so focusing on either exercise shows all of it. Everything above works with these labels: focus on "Exercise 3", stack all its blocks from every file, fold them, or rename the label.
 
 **Set up once:** Command Palette → **Color Focus: Set Up Claude Code Integration…**, then restart Claude Code. Needs [Node.js](https://nodejs.org).
 
@@ -84,7 +84,7 @@ Run the same command again to reinstall or remove it.
 ### Clean up and rename in bulk
 
 - **Remove a highlight:** cursor in a block → **Option+Tab, then X** (Windows/Linux: **Ctrl+Alt+X**). With lines selected, only those lines lose their color.
-- **Remove Highlights…** in a file, a folder or everywhere: all of them, or only those with a certain label or color. You can also remove just a label and keep the color.
+- **Remove Highlights…** in a file, a folder or everywhere: all of them, or only those with a certain label or color. You can also remove just a label: blocks that have other labels keep their color, blocks with only that label are removed.
 - **Rename Label…** in a file, a folder or everywhere, e.g. `Exercise 1` → `Exercise 0`.
 
 Right-click in the editor (this file) or on a file or folder in the Explorer. Both ask before changing anything and offer **Undo** afterwards.
@@ -95,7 +95,7 @@ Right-click in the editor (this file) or on a file or folder in the Explorer. Bo
 
 1. Select a few lines of code.
 2. Press **Option+Tab, then H** (Windows/Linux: **Ctrl+Alt+H**), or right-click → **Highlight Selection With Color…**
-3. Pick a color, type a label (or just press `Enter`), done.
+3. Pick a color, type a label + `Enter`, then `Enter` again. Done.
 
 ## Keyboard shortcuts
 
@@ -160,7 +160,6 @@ Open the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and type "Color Focus"
 | `colorFocus.colors` | 9 colors | The color list. Add your own, e.g. `{ "name": "Bugs", "color": "#ff0000" }` |
 | `colorFocus.backgroundOpacity` | `0.22` | Strength of the background color |
 | `colorFocus.wholeLine` | `true` | Color whole lines edge to edge. `false` colors only the selected characters |
-| `colorFocus.askForLabel` | `true` | Ask for labels after picking a color |
 | `colorFocus.showLabels` | `true` | Show labels at the end of the block's first line |
 | `colorFocus.dimOpacity` | `0.2` | How faded other code is in focus mode (0 = invisible) |
 | `colorFocus.foldable` | `true` | Allow folding highlighted blocks |

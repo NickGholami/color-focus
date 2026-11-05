@@ -90,8 +90,12 @@ function addHighlight(highlights, start, end, color, labels) {
   const clean = normalizeLabels(labels);
   if (clean.length) h.labels = clean;
   list.push(h);
-  list.sort((a, b) => a.start - b.start);
+  return mergeTouching(list);
+}
 
+/** Sort, and join touching pieces that have the same color and the same labels. */
+function mergeTouching(list) {
+  list = [...list].sort((a, b) => a.start - b.start);
   const merged = [];
   for (const h of list) {
     const last = merged[merged.length - 1];
@@ -102,6 +106,40 @@ function addHighlight(highlights, start, end, color, labels) {
     }
   }
   return merged;
+}
+
+/**
+ * Add labels to [start, end) without taking away labels that are already there.
+ * Code that already has a highlight keeps its labels and gets the new ones too (and the new color);
+ * uncolored code in the range becomes a new highlight. Used for code Claude Code changes:
+ * lines written for "Exercise 2" and changed again for "Exercise 3" belong to both.
+ */
+function addLabeled(highlights, start, end, color, labels) {
+  const add = normalizeLabels(labels);
+  const result = [];
+  const covered = [];
+  for (const h of highlights) {
+    if (h.end <= start || h.start >= end) {
+      result.push(h);
+      continue;
+    }
+    const s = Math.max(h.start, start);
+    const e = Math.min(h.end, end);
+    if (h.start < s) result.push({ ...h, end: s });
+    const both = normalizeLabels([...labelsOf(h), ...add]);
+    const unchanged = both.length === labelsOf(h).length;
+    result.push({ ...withLabels(h, both), start: s, end: e, color: unchanged ? h.color : color, id: h.start < s ? newId() : h.id });
+    if (h.end > e) result.push({ ...h, start: e, id: newId() });
+    covered.push({ start: s, end: e });
+  }
+  // The rest of the range: new highlight(s). Leftovers of 1-2 characters are just line breaks between blocks.
+  for (const gap of complement(covered.map((c) => ({ start: c.start - start, end: c.end - start })), end - start)) {
+    if (gap.end - gap.start <= 2 && covered.length) continue;
+    const h = { id: newId(), start: start + gap.start, end: start + gap.end, color };
+    if (add.length) h.labels = add;
+    result.push(h);
+  }
+  return mergeTouching(result);
 }
 
 /** Parts of [0, total) not covered by any of the given [start, end) intervals. */
@@ -158,4 +196,4 @@ function swatch(color) {
   return '🟣';
 }
 
-module.exports = { labelsOf, normalizeLabels, sameLabels, withLabels, newId, applyChange, subtract, addHighlight, complement, toBackground, parseHex, swatch };
+module.exports = { labelsOf, normalizeLabels, sameLabels, withLabels, newId, applyChange, subtract, addHighlight, addLabeled, mergeTouching, complement, toBackground, parseHex, swatch };

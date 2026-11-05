@@ -52,9 +52,10 @@ function main() {
     const from = Number(m[1]) - 1;
     const to = Number(m[2] || m[1]) - 1;
     const label = opts.label || (readActive() || {}).label;
-    const labels = label ? [label] : [];
+    if (!label) fail('Give a label: color-focus add <file> <from>[-<to>] --label "Exercise 1"');
+    const labels = [label];
     sendBlocks(abs, text, [{ start: Math.min(from, to), end: Math.max(from, to) }], labels, opts.color);
-    console.log(`Color Focus: highlighted ${path.basename(abs)} lines ${from + 1}-${to + 1}${label ? ` as "${label}"` : ''}.`);
+    console.log(`Color Focus: highlighted ${path.basename(abs)} lines ${from + 1}-${to + 1} as "${label}".`);
   } else {
     console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(1, 9).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
     if (cmd && cmd !== 'help' && cmd !== '--help') process.exit(1);

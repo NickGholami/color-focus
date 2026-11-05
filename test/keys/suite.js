@@ -17,7 +17,7 @@ exports.run = async () => {
   await sleep(1500);
   for (const [a, b] of [[1, 2], [5, 6]]) {
     ed.selection = new vscode.Selection(a, 0, b, 2);
-    await vscode.commands.executeCommand('colorFocus.highlight', { color: '#ff5c5c', labels: [] });
+    await vscode.commands.executeCommand('colorFocus.highlight', { color: '#ff5c5c', labels: ['k'] });
     await sleep(500);
   }
   const state = (tag) => out.push(`${tag.padEnd(40)} focus=${api.testHooks.focus() ? 'on ' : 'off'} jumping=${api.testHooks.jumping() ? 'yes' : 'no '} line=${vscode.window.activeTextEditor.selection.active.line}`);
@@ -31,7 +31,7 @@ exports.run = async () => {
   await press('x', false);
   out.push(`Option+Tab, X in a block: blocks ${n0} -> ${api.testHooks.highlights(doc).length}`);
   ed.selection = new vscode.Selection(1, 0, 2, 2);
-  await vscode.commands.executeCommand('colorFocus.highlight', { color: '#ff5c5c', labels: [] });
+  await vscode.commands.executeCommand('colorFocus.highlight', { color: '#ff5c5c', labels: ['k'] });
   await sleep(500);
   ed.selection = new vscode.Selection(0, 0, 0, 0);
   for (const hold of [false, true]) {
