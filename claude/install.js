@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-// Installs (or removes) the Claude Code integration:
-//  - scripts in ~/.color-focus/bin (hook, color-focus command)
-//  - a Pre/PostToolUse hook in ~/.claude/settings.json
-//  - a skill in ~/.claude/skills/color-focus that tells Claude when to start/stop a label
-// Used by the "Color Focus: Set Up Claude Code Integration" command; can also run directly:
-//   node claude/install.js [install|uninstall|status]
+// Installs (or removes) the AI agent integration, for Claude Code and/or Codex:
+//  - scripts in ~/.color-focus/bin (hook, color-focus command), shared by both
+//  - Claude Code: a Pre/PostToolUse hook in ~/.claude/settings.json and a skill in ~/.claude/skills/color-focus
+//  - Codex:       a Pre/PostToolUse hook in ~/.codex/hooks.json   and a skill in ~/.agents/skills/color-focus
+// The skill tells the agent when to start/stop a label; the hook highlights what it changes.
+// Used by the "Color Focus: Set Up … Integration" commands; can also run directly:
+//   node claude/install.js [install|uninstall|status] [claude|codex]
 
 const fs = require('fs');
 const path = require('path');
@@ -14,12 +15,34 @@ const { execFileSync } = require('child_process');
 const HERE = __dirname;
 const HOME = process.env.COLOR_FOCUS_HOME || path.join(os.homedir(), '.color-focus');
 const BIN = path.join(HOME, 'bin');
-const CLAUDE = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
-const SETTINGS = path.join(CLAUDE, 'settings.json');
-const SKILL_DIR = path.join(CLAUDE, 'skills', 'color-focus');
-const MATCHER = 'Edit|Write|MultiEdit';
 const HOOK = path.join(BIN, 'hook.js');
+const CLAUDE = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
+const CODEX = process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
+const AGENTS_SKILLS = process.env.COLOR_FOCUS_AGENTS_SKILLS || path.join(os.homedir(), '.agents', 'skills');
+
+const AGENTS = {
+  claude: {
+    name: 'Claude Code',
+    config: path.join(CLAUDE, 'settings.json'),
+    skillDir: path.join(CLAUDE, 'skills', 'color-focus'),
+    matchers: { PreToolUse: 'Edit|Write|MultiEdit', PostToolUse: 'Edit|Write|MultiEdit' },
+  },
+  codex: {
+    name: 'Codex',
+    config: path.join(CODEX, 'hooks.json'),
+    skillDir: path.join(AGENTS_SKILLS, 'color-focus'),
+    // apply_patch: file edits. Bash: `color-focus start/stop/add`, which Codex's sandbox would block.
+    matchers: { PreToolUse: '^(apply_patch|Bash)$', PostToolUse: '^(apply_patch|Bash)$' },
+  },
+};
+const EVENTS = ['PreToolUse', 'PostToolUse'];
 const ours = (command) => String(command || '').includes('.color-focus') || String(command || '').includes(HOOK);
+
+function agentOf(id) {
+  const a = AGENTS[id];
+  if (!a) throw new Error(`Unknown agent "${id}". Use one of: ${Object.keys(AGENTS).join(', ')}.`);
+  return a;
+}
 
 function linediffPath() {
   const nextTo = path.join(HERE, 'linediff.js');
@@ -40,16 +63,16 @@ function findNode() {
   return null;
 }
 
-function readSettings() {
-  if (!fs.existsSync(SETTINGS)) return {};
-  const raw = fs.readFileSync(SETTINGS, 'utf8');
+function readConfig(file) {
+  if (!fs.existsSync(file)) return {};
+  const raw = fs.readFileSync(file, 'utf8');
   if (!raw.trim()) return {};
   return JSON.parse(raw); // throws on invalid JSON: then we change nothing
 }
 
 function withoutOurHooks(settings) {
   const hooks = settings.hooks || {};
-  for (const event of ['PreToolUse', 'PostToolUse']) {
+  for (const event of EVENTS) {
     if (!Array.isArray(hooks[event])) continue;
     hooks[event] = hooks[event]
       .map((entry) => ({ ...entry, hooks: (entry.hooks || []).filter((h) => !ours(h.command)) }))
@@ -60,10 +83,10 @@ function withoutOurHooks(settings) {
   return settings;
 }
 
-function writeSettings(settings) {
-  fs.mkdirSync(CLAUDE, { recursive: true });
-  if (fs.existsSync(SETTINGS)) fs.copyFileSync(SETTINGS, SETTINGS + '.before-color-focus');
-  fs.writeFileSync(SETTINGS, JSON.stringify(settings, null, 2) + '\n');
+function writeConfig(file, settings) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  if (fs.existsSync(file)) fs.copyFileSync(file, file + '.before-color-focus');
+  fs.writeFileSync(file, JSON.stringify(settings, null, 2) + '\n');
 }
 
 /** Copy the scripts into ~/.color-focus/bin. Returns true if anything changed. */
@@ -89,35 +112,37 @@ function copyScripts(node) {
   return changed;
 }
 
-function install({ node = findNode() } = {}) {
+function install(agentId = 'claude', { node = findNode() } = {}) {
+  const agent = agentOf(agentId);
   if (!node) throw new Error('Node.js was not found. Install it from https://nodejs.org and try again.');
-  const settings = withoutOurHooks(readSettings());
+  const settings = withoutOurHooks(readConfig(agent.config));
   copyScripts(node);
 
   const command = `"${node}" "${HOOK}"`;
   settings.hooks = settings.hooks || {};
-  for (const event of ['PreToolUse', 'PostToolUse']) {
+  for (const event of EVENTS) {
     settings.hooks[event] = settings.hooks[event] || [];
-    settings.hooks[event].push({ matcher: MATCHER, hooks: [{ type: 'command', command, timeout: 10 }] });
+    settings.hooks[event].push({ matcher: agent.matchers[event], hooks: [{ type: 'command', command, timeout: 10 }] });
   }
-  writeSettings(settings);
+  writeConfig(agent.config, settings);
 
-  fs.mkdirSync(SKILL_DIR, { recursive: true });
-  fs.copyFileSync(path.join(HERE, 'SKILL.md'), path.join(SKILL_DIR, 'SKILL.md'));
-  return { node, settings: SETTINGS, skill: SKILL_DIR, bin: BIN };
+  fs.mkdirSync(agent.skillDir, { recursive: true });
+  fs.copyFileSync(path.join(HERE, 'SKILL.md'), path.join(agent.skillDir, 'SKILL.md'));
+  return { agent: agent.name, node, config: agent.config, skill: agent.skillDir, bin: BIN };
 }
 
-function uninstall() {
-  if (fs.existsSync(SETTINGS)) writeSettings(withoutOurHooks(readSettings()));
-  fs.rmSync(SKILL_DIR, { recursive: true, force: true });
+function uninstall(agentId = 'claude') {
+  const agent = agentOf(agentId);
+  if (fs.existsSync(agent.config)) writeConfig(agent.config, withoutOurHooks(readConfig(agent.config)));
+  fs.rmSync(agent.skillDir, { recursive: true, force: true });
+  if (Object.keys(AGENTS).some(isInstalled)) return; // the other agent still uses the scripts
   fs.rmSync(BIN, { recursive: true, force: true });
-  fs.rmSync(path.join(HOME, 'active.json'), { force: true });
-  fs.rmSync(path.join(HOME, 'before'), { recursive: true, force: true });
+  for (const f of ['active.json', 'before', 'handled']) fs.rmSync(path.join(HOME, f), { recursive: true, force: true });
 }
 
-function isInstalled() {
+function isInstalled(agentId = 'claude') {
   try {
-    const hooks = readSettings().hooks || {};
+    const hooks = readConfig(agentOf(agentId).config).hooks || {};
     const any = Object.values(hooks).flat().some((e) => (e.hooks || []).some((h) => ours(h.command)));
     return any && fs.existsSync(HOOK);
   } catch {
@@ -125,21 +150,25 @@ function isInstalled() {
   }
 }
 
-/** After an extension update: bring installed scripts and skill up to date (keeps the same node). */
+/** After an extension update: bring installed scripts and skills up to date (keeps the same node). */
 function refresh() {
-  if (!isInstalled()) return false;
+  const installed = Object.keys(AGENTS).filter(isInstalled);
+  if (!installed.length) return false;
   let node = null;
   try { node = /exec "([^"]+)"/.exec(fs.readFileSync(path.join(BIN, 'color-focus'), 'utf8'))[1]; } catch {}
   const changed = copyScripts(node);
-  if (fs.existsSync(SKILL_DIR)) fs.copyFileSync(path.join(HERE, 'SKILL.md'), path.join(SKILL_DIR, 'SKILL.md'));
+  for (const id of installed) {
+    const dir = AGENTS[id].skillDir;
+    if (fs.existsSync(dir)) fs.copyFileSync(path.join(HERE, 'SKILL.md'), path.join(dir, 'SKILL.md'));
+  }
   return changed;
 }
 
-module.exports = { install, uninstall, isInstalled, refresh, findNode, SETTINGS, SKILL_DIR, BIN };
+module.exports = { AGENTS, install, uninstall, isInstalled, refresh, findNode, BIN };
 
 if (require.main === module) {
-  const cmd = process.argv[2] || 'install';
-  if (cmd === 'install') console.log('Installed:', install());
-  else if (cmd === 'uninstall') { uninstall(); console.log('Removed.'); }
-  else console.log(isInstalled() ? 'Installed.' : 'Not installed.');
+  const [cmd = 'install', agentId = 'claude'] = process.argv.slice(2);
+  if (cmd === 'install') console.log('Installed:', install(agentId));
+  else if (cmd === 'uninstall') { uninstall(agentId); console.log('Removed.'); }
+  else console.log(`${agentOf(agentId).name}: ${isInstalled(agentId) ? 'installed' : 'not installed'}.`);
 }

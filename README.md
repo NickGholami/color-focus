@@ -4,6 +4,8 @@
 
 Select some code, pick a color, add a label like `exercise 1`. The color stays after you click away, follows the code as you edit, and is still there tomorrow. Then dim everything else, fold the block away, or pull every `exercise 1` block from every file into one stacked view.
 
+**Works with AI coding agents.** Ask [Claude Code](https://claude.com/claude-code) or [Codex](https://openai.com/codex) to "solve exercise 1", and every block of code it writes is highlighted and labeled **Exercise 1** automatically. [Set it up in one step →](#let-claude-code-or-codex-highlight-the-code-they-write)
+
 Works in every language VS Code can open: Python, JavaScript/TypeScript, Java, C/C++, Fortran, MATLAB, Julia, CSS, HTML, Markdown, plain text and more.
 
 ![Highlighted and labeled blocks in a Python file](images/screenshot-highlights.png)
@@ -17,7 +19,7 @@ Works in every language VS Code can open: Python, JavaScript/TypeScript, Java, C
 Select lines → **Option+Tab, then H** (Windows/Linux: **Ctrl+Alt+H**) → pick a color. Or right-click → **Highlight Selection With Color…**, or use the palette button at the top right of the editor.
 
 - Highlights stay after you deselect and are saved between sessions.
-- They move with the code when you type above or inside them, follow files you rename, and follow changes made outside VS Code (by Claude Code, git or another editor).
+- They move with the code when you type above or inside them, follow files you rename, and follow changes made outside VS Code (by Claude Code, Codex, git or another editor).
 - Color as many blocks as you like, with several selections at once if you want.
 - 9 built-in colors plus any custom CSS color. Colored marks in the scrollbar show where every block is.
 
@@ -55,30 +57,40 @@ Cursor in a block → **Option+Tab, then C** (Windows/Linux: **Ctrl+Alt+C**) fol
 
 **Option+Tab, then ↓ / ↑** (Windows/Linux: **Ctrl+Alt+] / [**) jumps to the next or previous block. Keep pressing **↓ / ↑** to keep jumping; any other key stops. In focus mode, **Option+↓ / ↑** jumps directly.
 
-### Let Claude Code highlight the code it writes
+### Let Claude Code or Codex highlight the code they write
 
-If you use [Claude Code](https://claude.com/claude-code), Color Focus can highlight every block of code Claude writes or changes, labeled with the exercise it belongs to:
+If you use [Claude Code](https://claude.com/claude-code) or OpenAI's [Codex](https://openai.com/codex), Color Focus can highlight every block of code the agent writes or changes, labeled with the exercise it belongs to:
 
 > **You:** solve exercise 3
 >
-> Claude writes the code, and in VS Code every new or changed block is colored and labeled **Exercise 3**.
+> The agent writes the code, and in VS Code every new or changed block is colored and labeled **Exercise 3**.
 
-Claude's highlights always have a label, and each exercise gets its own color. If Claude later changes code from an earlier exercise, that code keeps its old label and gets the new one too, so focusing on either exercise shows all of it. Everything above works with these labels: focus on "Exercise 3", stack all its blocks from every file, fold them, or rename the label.
+You don't have to ask for highlighting or explain anything: just name the exercise, task or assignment as you normally would ("do opgave 2b", "solve part A", "implement task 4"). Ask for several at once ("solve exercise 1, 2 and 3") and each one gets its own label and color.
 
-**Set up once:** Command Palette → **Color Focus: Set Up Claude Code Integration…**, then restart Claude Code. Needs [Node.js](https://nodejs.org).
+The agent's highlights always have a label. If it later changes code from an earlier exercise, that code keeps its old label and gets the new one too, so focusing on either exercise shows all of it. Everything above works with these labels: focus on "Exercise 3", stack all its blocks from every file, fold them, or rename the label.
+
+**Set up once** (needs [Node.js](https://nodejs.org)):
+
+| Agent | Steps |
+| --- | --- |
+| **Claude Code** | Command Palette → **Color Focus: Set Up Claude Code Integration…** → restart Claude Code. |
+| **Codex** (app, CLI or IDE extension) | Command Palette → **Color Focus: Set Up Codex Integration…** → restart Codex. Codex only runs hooks you've approved: the first time, review and trust the Color Focus hook when Codex asks, or with `/hooks` in Codex. |
+
+Use both if you like; they share the same labels. Run a setup command again to reinstall or remove it.
 
 <details>
 <summary>How it works and what it installs</summary>
 
-- A **skill** (`~/.claude/skills/color-focus`) tells Claude to turn a label on when you ask it to work on a named exercise, task or assignment, and off when it's done.
-- A **hook** in `~/.claude/settings.json` notes which lines each of Claude's edits added or changed, while a label is on. Your settings file is backed up first, and other hooks are kept.
-- Small **scripts** in `~/.color-focus/bin`. You can also use them yourself:
-  - `~/.color-focus/bin/color-focus start "Exercise 1"`: highlight Claude's changes as "Exercise 1" from now on
+- A **skill** tells the agent to turn a label on when you ask it to work on a named exercise, task or assignment, and off when it's done. Claude Code: `~/.claude/skills/color-focus`. Codex: `~/.agents/skills/color-focus`.
+- A **hook** notes which lines each of the agent's file edits added or changed, while a label is on. Claude Code: in `~/.claude/settings.json`. Codex: in `~/.codex/hooks.json`. The file is backed up first, and your other hooks are kept.
+- With Codex, the hook also turns labels on and off for the agent. Codex runs commands in a sandbox that can't write outside your project, and the hook runs outside it, so you aren't asked for permission every time a label changes.
+- Small **scripts** in `~/.color-focus/bin`, shared by both agents. You can also use them yourself:
+  - `~/.color-focus/bin/color-focus start "Exercise 1"`: highlight the agent's changes as "Exercise 1" from now on
   - `~/.color-focus/bin/color-focus stop`: stop
   - `~/.color-focus/bin/color-focus add file.py 10-25 --label "Exercise 1"`: highlight lines by hand
 - The extension picks the highlights up from `~/.color-focus/inbox`, also for files that aren't open. If VS Code is closed, they're added the next time it opens.
-
-Run the same command again to reinstall or remove it.
+- Only edits made with the agent's own file-editing tool are highlighted (Edit/Write in Claude Code, apply_patch in Codex), not files changed by shell commands or scripts it runs.
+- Nothing is sent anywhere: everything stays in these folders on your computer.
 </details>
 
 ### Clean up and rename in bulk
@@ -152,6 +164,7 @@ Open the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and type "Color Focus"
 | Rename Label… | Rename a label in a file, folder or everywhere |
 | Clear All Highlights in This File | Start over in this file |
 | Set Up Claude Code Integration… | Let Claude Code highlight the code it writes (see above) |
+| Set Up Codex Integration… | Let Codex highlight the code it writes (see above) |
 
 ## Settings
 

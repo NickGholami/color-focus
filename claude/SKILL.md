@@ -6,8 +6,9 @@ description: Highlight the code you write in VS Code with a Color Focus label. U
 # Color Focus: label the code you write
 
 The user's VS Code has the Color Focus extension. While a label is active, every block of code you
-add or change with Edit/Write/MultiEdit is automatically highlighted in VS Code with that label, so the
-user can find all code for one exercise later. You only have to turn the label on and off.
+add or change with your file-editing tool (Edit/Write in Claude Code, apply_patch in Codex) is
+automatically highlighted in VS Code with that label, so the user can find all code for one exercise
+later. You only have to turn the label on and off.
 
 ## Steps
 
@@ -20,7 +21,8 @@ user can find all code for one exercise later. You only have to turn the label o
 
    Run it from the project folder (only files under the current folder are highlighted).
 
-2. Solve the exercise as usual. Highlighting happens by itself.
+2. Solve the exercise as usual, making code changes with your file-editing tool. Highlighting happens
+   by itself. Changes made with shell commands (sed, `cat >`, scripts) are not highlighted.
 
 3. **When you are done with that exercise**, stop the label:
 
@@ -35,7 +37,9 @@ user can find all code for one exercise later. You only have to turn the label o
 - Only start a label when the work belongs to a named exercise/task, or the user asks for highlighting.
   For general refactoring or unrelated fixes, don't.
 - Moving between exercises: `start` with the new name replaces the old label; no need to stop first.
-- If you changed code for an exercise without a label active, highlight it afterwards (lines are 1-based):
+- Run each color-focus command as its own command, with the label in quotes as shown.
+- If you changed code for an exercise without a label active (or with a shell command), highlight it
+  afterwards (lines are 1-based):
 
   ```bash
   ~/.color-focus/bin/color-focus add path/to/file.py 12-30 --label "Exercise 1"

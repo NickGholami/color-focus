@@ -1,7 +1,7 @@
 {
   "name": "color-focus",
   "displayName": "Color Focus",
-  "description": "Highlight blocks of code with colors and labels, then focus on them, fold them, or stack them from every file into one view. Works in every language.",
+  "description": "Highlight blocks of code with colors and labels, then focus on them, fold them, or stack them from every file into one view. Claude Code and Codex can label the code they write. Works in every language.",
   "version": "1.1.0",
   "publisher": "NickGholami",
   "license": "MIT",
@@ -47,6 +47,8 @@
     "notes",
     "claude",
     "claude code",
+    "codex",
+    "openai codex",
     "ai"
   ],
   "activationEvents": [
@@ -145,6 +147,12 @@
       {
         "command": "colorFocus.setUpClaude",
         "title": "Set Up Claude Code Integration…",
+        "category": "Color Focus",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "colorFocus.setUpCodex",
+        "title": "Set Up Codex Integration…",
         "category": "Color Focus",
         "icon": "$(sparkle)"
       },
@@ -511,7 +519,7 @@
   },
   "scripts": {
     "package": "vsce package",
-    "test": "node --test test/ranges.test.js test/linediff.test.js test/claude.test.js test/replay.test.js",
+    "test": "node --test test/ranges.test.js test/linediff.test.js test/claude.test.js test/codex.test.js test/replay.test.js",
     "test:integration": "node test/integration/run.js",
     "test:keys": "node test/keys/run.js",
     "screenshots": "node test/screenshots/run.js"

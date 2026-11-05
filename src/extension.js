@@ -99,7 +99,8 @@ function activate(ctx) {
   cmd('colorFocus.foldAll', () => folding.setFolded(true));
   cmd('colorFocus.unfoldAll', () => folding.setFolded(false));
   cmd('colorFocus.toggleFold', () => folding.toggleAtCursor());
-  cmd('colorFocus.setUpClaude', () => claude.setUp(ctx));
+  cmd('colorFocus.setUpClaude', () => claude.setUp(ctx, 'claude'));
+  cmd('colorFocus.setUpCodex', () => claude.setUp(ctx, 'codex'));
 
   ctx.subscriptions.push(
     statusItem,
@@ -139,7 +140,7 @@ function activate(ctx) {
   for (const doc of vscode.workspace.textDocuments) catchUp(doc);
   refreshAll();
 
-  // Highlights sent by Claude Code (or anything else) through ~/.color-focus/inbox.
+  // Highlights sent by Claude Code, Codex (or anything else) through ~/.color-focus/inbox.
   inbox = createInbox({ addBlocks, colorForLabels });
   ctx.subscriptions.push(inbox);
   testHooks.inbox = inbox;
