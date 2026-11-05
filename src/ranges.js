@@ -196,4 +196,81 @@ function swatch(color) {
   return '🟣';
 }
 
-module.exports = { labelsOf, normalizeLabels, sameLabels, withLabels, newId, applyChange, subtract, addHighlight, addLabeled, mergeTouching, complement, toBackground, parseHex, swatch };
+// ---------- blocks made of several pieces ----------
+// Code written for "Exercise 2" and partly changed again for "Exercise 3" is stored as pieces
+// (["Exercise 2"] and ["Exercise 2", "Exercise 3"]), but people see and want one block.
+
+/** Labels in reading order: "Exercise 2" before "Exercise 10". */
+function sortLabels(labels) {
+  return [...labels].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+}
+
+/**
+ * Join pieces that touch (no free line between them) into blocks.
+ * pieces: [{ startLine, endLine, labels?, ... }] in any order; `joinable(block, piece)` decides (default: always).
+ * Returns [{ startLine, endLine, pieces, labels }], each label once. A single piece keeps its own label
+ * order; a block of several pieces lists its labels sorted ("Exercise 2", "Exercise 3").
+ */
+function joinTouching(pieces, joinable = () => true) {
+  const sorted = [...pieces].sort((a, b) => a.startLine - b.startLine || a.endLine - b.endLine);
+  const blocks = [];
+  for (const p of sorted) {
+    const last = blocks[blocks.length - 1];
+    if (last && p.startLine <= last.endLine + 1 && joinable(last, p)) {
+      last.endLine = Math.max(last.endLine, p.endLine);
+      last.pieces.push(p);
+      last.labels = sortLabels(normalizeLabels([...last.labels, ...labelsOf(p)]));
+    } else {
+      blocks.push({ startLine: p.startLine, endLine: p.endLine, pieces: [p], labels: normalizeLabels(labelsOf(p)) });
+    }
+  }
+  return blocks;
+}
+
+/** For joinTouching: only join pieces that share a label with the block. */
+const sharesLabel = (block, piece) => labelsOf(piece).some((l) => block.labels.includes(l));
+
+/**
+ * The color of each label among these highlights: the color of its own highlights (only that label),
+ * else of a highlight it was added to last (a piece takes the color of its newest label), else any.
+ */
+function labelColors(highlights) {
+  const own = new Map();
+  const newest = new Map();
+  const any = new Map();
+  for (const h of highlights) {
+    const ls = labelsOf(h);
+    if (!ls.length) continue;
+    if (ls.length === 1 && !own.has(ls[0])) own.set(ls[0], h.color);
+    if (!newest.has(ls[ls.length - 1])) newest.set(ls[ls.length - 1], h.color);
+    for (const l of ls) if (!any.has(l)) any.set(l, h.color);
+  }
+  const colors = new Map();
+  for (const l of any.keys()) colors.set(l, own.get(l) || newest.get(l) || any.get(l));
+  return colors;
+}
+
+/**
+ * Color for new highlights with these labels. Same label → same color, but a label never takes a color
+ * another label already has in this file (old highlights or other projects can't make two exercises look alike).
+ *   fileHighlights: highlights in the file; projectHighlights: in its project (workspace folder); palette: colors.
+ */
+function pickLabelColor(labels, { fileHighlights = [], projectHighlights = [], palette = [] }) {
+  const inFile = labelColors(fileHighlights);
+  const inProject = labelColors(projectHighlights);
+  const takenInFile = new Set([...inFile].filter(([l]) => !labels.includes(l)).map(([, c]) => c.toLowerCase()));
+  const free = (c) => c && !takenInFile.has(c.toLowerCase());
+  for (const l of labels) if (free(inFile.get(l))) return inFile.get(l);
+  for (const l of labels) if (free(inProject.get(l))) return inProject.get(l);
+  const takenInProject = new Set([...inProject.values()].map((c) => c.toLowerCase()));
+  const unused = palette.find((c) => free(c) && !takenInProject.has(c.toLowerCase())) || palette.find(free);
+  if (unused) return unused;
+  let hash = 0;
+  for (const ch of labels.join(',')) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return palette.length ? palette[hash % palette.length] : '#2ec4b6';
+}
+
+module.exports = {
+  labelsOf, normalizeLabels, sameLabels, withLabels, newId, applyChange, subtract, addHighlight, addLabeled, mergeTouching,
+  complement, toBackground, parseHex, swatch, sortLabels, joinTouching, sharesLabel, labelColors, pickLabelColor,
+};

@@ -116,3 +116,56 @@ test('addLabeled: same label again changes nothing; line breaks between blocks a
   const out = R.addLabeled([a, b], 0, 19, 'blue', ['z']);
   assert.deepStrictEqual(out.map((h) => [h.start, h.end, h.labels.join('+')]), [[0, 9, 'x+z'], [10, 19, 'y+z']]);
 });
+
+// --- blocks made of several pieces (the grades.py run with Codex: 0-based lines) ---
+const ex1 = '#ff9f43', ex2 = '#ffd93d', ex3 = '#2ec4b6';
+const gradesPieces = [
+  { startLine: 14, endLine: 19, labels: ['Exercise 1'], color: ex1 },
+  { startLine: 24, endLine: 25, labels: ['Exercise 3'], color: ex3 },
+  { startLine: 35, endLine: 36, labels: ['Exercise 2'], color: ex2 }, // best_student, written for exercise 2
+  { startLine: 37, endLine: 42, labels: ['Exercise 2', 'Exercise 3'], color: ex3 }, // ...partly rewritten for 3
+  { startLine: 50, endLine: 55, labels: ['Exercise 3'], color: ex3 }, // print_report loop
+  { startLine: 56, endLine: 59, labels: ['Exercise 2', 'Exercise 3'], color: ex3 },
+];
+
+test('joinTouching: touching pieces sharing a label are one block, each label once and in order', () => {
+  const blocks = R.joinTouching(gradesPieces, R.sharesLabel);
+  assert.deepStrictEqual(blocks.map((b) => [b.startLine, b.endLine, b.labels.join(' + ')]), [
+    [14, 19, 'Exercise 1'],
+    [24, 25, 'Exercise 3'],
+    [35, 42, 'Exercise 2 + Exercise 3'],
+    [50, 59, 'Exercise 2 + Exercise 3'],
+  ]);
+});
+
+test('joinTouching: pieces with no label in common, or with a free line between, stay apart', () => {
+  const a = { startLine: 0, endLine: 2, labels: ['A'] };
+  const b = { startLine: 3, endLine: 4, labels: ['B'] };
+  const c = { startLine: 6, endLine: 7, labels: ['B'] };
+  assert.strictEqual(R.joinTouching([a, b, c], R.sharesLabel).length, 3);
+  assert.deepStrictEqual(R.joinTouching([c, a, b]).map((x) => [x.startLine, x.endLine]), [[0, 4], [6, 7]]); // no rule: touching only
+  assert.deepStrictEqual(R.sortLabels(['Exercise 10', 'exercise 2', 'Exercise 1']), ['Exercise 1', 'exercise 2', 'Exercise 10']);
+});
+
+test('labelColors: a label keeps the color of its own highlights', () => {
+  const toHighlights = (pieces) => pieces.map((p) => ({ color: p.color, labels: p.labels }));
+  const colors = R.labelColors(toHighlights(gradesPieces));
+  assert.deepStrictEqual(Object.fromEntries(colors), { 'Exercise 1': ex1, 'Exercise 3': ex3, 'Exercise 2': ex2 });
+  // Only shared pieces: the piece's color belongs to its newest label
+  assert.deepStrictEqual(Object.fromEntries(R.labelColors([{ color: 'blue', labels: ['A', 'B'] }])), { A: 'blue', B: 'blue' });
+});
+
+test('pickLabelColor: a new label never takes a color another label has in the file', () => {
+  const palette = ['#ff5c5c', ex1, ex2, '#6bcb77', ex3, '#4d96ff'];
+  const file = [{ color: ex1, labels: ['Exercise 1'] }, { color: ex3, labels: ['Exercise 2'] }];
+  // "Exercise 3" was teal in another file of the project, but teal is "Exercise 2" here
+  const project = [...file, { color: ex3, labels: ['Exercise 3'] }];
+  const c = R.pickLabelColor(['Exercise 3'], { fileHighlights: file, projectHighlights: project, palette });
+  assert.ok(![ex1, ex3].includes(c), c);
+  // Same label again: same color
+  assert.strictEqual(R.pickLabelColor(['Exercise 2'], { fileHighlights: file, projectHighlights: project, palette }), ex3);
+  // A label used elsewhere in the project keeps its color when it's free here
+  assert.strictEqual(R.pickLabelColor(['Task 9'], { fileHighlights: file, projectHighlights: [{ color: '#4d96ff', labels: ['Task 9'] }], palette }), '#4d96ff');
+  // Otherwise the first color nobody in the project uses
+  assert.strictEqual(R.pickLabelColor(['New'], { fileHighlights: file, projectHighlights: project, palette }), '#ff5c5c');
+});

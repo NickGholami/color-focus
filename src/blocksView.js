@@ -2,7 +2,7 @@
 // from one file or from every file in the workspace, filtered by label or color.
 
 const vscode = require('vscode');
-const { labelsOf } = require('./ranges');
+const { labelsOf, joinTouching, sharesLabel } = require('./ranges');
 
 const SCHEME = 'colorfocus-blocks';
 
@@ -78,6 +78,15 @@ function createBlocksView(deps) {
     const [open, close] = COMMENTS[language] || ['', ''];
     const comment = (text) => `${open}${text}${close}`;
 
+    // Touching pieces are one block (e.g. "Exercise 2" code partly changed again for "Exercise 3").
+    for (const f of files) {
+      const pieces = f.blocks.map((h) => {
+        const r = deps.toRange(f.doc, h);
+        return { startLine: r.start.line, endLine: r.end.line, labels: labelsOf(h), color: h.color };
+      });
+      f.blocks = joinTouching(pieces, sharesLabel).map((b) => ({ from: b.startLine, to: b.endLine, labels: b.labels, color: b.pieces[0].color }));
+    }
+
     const count = files.reduce((n, f) => n + f.blocks.length, 0);
     const lines = [
       comment(`Color Focus · ${filterTitle(filter)} · ${count} block${count === 1 ? '' : 's'}${scope.kind === 'workspace' ? ` in ${files.length} file${files.length === 1 ? '' : 's'}` : ''}`),
@@ -87,13 +96,11 @@ function createBlocksView(deps) {
     let n = 0;
     for (const { doc, blocks } of files) {
       for (const h of blocks) {
-        const r = deps.toRange(doc, h);
-        const from = r.start.line;
-        const to = r.end.line;
+        const { from, to } = h;
         n++;
         lines.push('');
         const parts = [`${n}. ${relPath(doc.uri)}:${from + 1}${to > from ? `–${to + 1}` : ''}`];
-        if (labelsOf(h).length) parts.push(labelsOf(h).map((l) => `◆ ${l}`).join(' '));
+        if (h.labels.length) parts.push(h.labels.map((l) => `◆ ${l}`).join(' '));
         parts.push(deps.colorName(h.color));
         const header = lines.length;
         lines.push(comment(`━━ ${parts.join('  ·  ')} ━━`));

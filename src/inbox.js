@@ -92,7 +92,7 @@ function createInbox({ addBlocks, colorForLabels }) {
       await sleep(100);
     }
     const labels = R.normalizeLabels(req.labels || req.label);
-    const color = req.color || colorForLabels(labels);
+    const color = req.color || colorForLabels(labels, doc);
     await addBlocks(doc, Array.isArray(req.blocks) ? req.blocks : [], color, labels);
   }
 

@@ -17,7 +17,7 @@ let focus = null;
 
 const decorationTypes = new Map(); // color -> TextEditorDecorationType
 let dimDecoration;
-let labelDecoration;
+let labelSlots = [];
 let statusItem;
 let context;
 let saveTimer;
@@ -264,21 +264,28 @@ async function addBlocks(doc, blocksToAdd, color, labels) {
   return added;
 }
 
-/** The color already used for this label anywhere, otherwise a palette color no other label uses yet. */
-function colorForLabels(labels) {
-  const all = Object.values(store).flat();
-  for (const l of labels) {
-    const h = all.find((x) => R.labelsOf(x).includes(l));
-    if (h) return h.color;
-  }
-  const used = new Set(all.filter((x) => R.labelsOf(x).length).map((x) => x.color));
-  const colors = palette().map((p) => p.color).filter((c) => !/^#9e9e9e$/i.test(c));
-  const free = colors.find((c) => !used.has(c));
-  if (free) return free;
-  const name = labels.join(',');
-  let hash = 0;
-  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  return colors[hash % colors.length];
+/**
+ * Color for new highlights with these labels in `doc`: the label's color in this file or project,
+ * otherwise a palette color no other label uses. Two labels in one file never share a color.
+ */
+function colorForLabels(labels, doc) {
+  const key = doc ? doc.uri.toString() : '';
+  const folder = doc && vscode.workspace.getWorkspaceFolder(doc.uri);
+  const sameProject = (k) => {
+    if (!folder) return k === key;
+    try {
+      const f = vscode.workspace.getWorkspaceFolder(vscode.Uri.parse(k));
+      return !!f && f.uri.toString() === folder.uri.toString();
+    } catch {
+      return false;
+    }
+  };
+  const projectHighlights = Object.entries(store).filter(([k]) => sameProject(k)).flatMap(([, list]) => list);
+  return R.pickLabelColor(labels, {
+    fileHighlights: store[key] || [],
+    projectHighlights,
+    palette: palette().map((p) => p.color).filter((c) => !/^#9e9e9e$/i.test(c)),
+  });
 }
 
 function onRename(e) {
@@ -322,18 +329,28 @@ function createSharedDecorations() {
     opacity: String(config().get('dimOpacity', 0.2)),
     rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
   });
-  // The label text itself is set per highlight in renderEditor.
-  labelDecoration = vscode.window.createTextEditorDecorationType({
-    after: { margin: '0 0 0 2.5em', fontStyle: 'italic' },
-    rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
-  });
+  labelSlot(0);
+}
+
+/** Decoration type for the i-th label at the end of a block's first line (the text is set in renderEditor). */
+function labelSlot(i) {
+  while (labelSlots.length <= i) {
+    labelSlots.push(
+      vscode.window.createTextEditorDecorationType({
+        after: { fontStyle: 'italic', margin: labelSlots.length ? '0 0 0 1em' : '0 0 0 2.5em' },
+        rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
+      })
+    );
+  }
+  return labelSlots[i];
 }
 
 function disposeDecorations() {
   for (const t of decorationTypes.values()) t.dispose();
   decorationTypes.clear();
   if (dimDecoration) dimDecoration.dispose();
-  if (labelDecoration) labelDecoration.dispose();
+  for (const t of labelSlots) t.dispose();
+  labelSlots = [];
 }
 
 function refreshAll() {
@@ -409,19 +426,29 @@ function renderEditor(editor) {
     editor.setDecorations(decorationFor(color), options);
   }
 
-  // Label text at the end of each block's first line.
-  const labels = [];
+  // Label text at the end of each block's first line. Touching pieces that share a label are one block
+  // (e.g. "Exercise 2" code partly changed again for "Exercise 3"): each label is shown once, in its own color.
+  // VS Code doesn't keep the order of several texts at one spot, so the 1st, 2nd, ... label of a block
+  // each use their own decoration type (created in that order).
+  const slots = [];
   if (config().get('showLabels', true)) {
-    for (const h of visible) {
-      if (!R.labelsOf(h).length) continue;
-      const line = doc.lineAt(toRange(doc, h).start.line);
-      labels.push({
-        range: new vscode.Range(line.range.end, line.range.end),
-        renderOptions: { after: { contentText: labelText(h), color: h.color } },
+    const colorOf = R.labelColors(list);
+    const pieces = visible.filter((h) => R.labelsOf(h).length).map((h) => {
+      const r = toRange(doc, h);
+      return { startLine: r.start.line, endLine: r.end.line, labels: R.labelsOf(h), color: h.color };
+    });
+    for (const block of R.joinTouching(pieces, R.sharesLabel)) {
+      const end = doc.lineAt(block.startLine).range.end;
+      block.labels.forEach((l, i) => {
+        (slots[i] = slots[i] || []).push({
+          range: new vscode.Range(end, end),
+          renderOptions: { after: { contentText: `◆ ${l}`, color: colorOf.get(l) } },
+        });
       });
     }
   }
-  editor.setDecorations(labelDecoration, labels);
+  slots.forEach((_, i) => labelSlot(i));
+  labelSlots.forEach((type, i) => editor.setDecorations(type, slots[i] || []));
 
   editor.setDecorations(dimDecoration, focus ? dimRanges(doc, visible) : []);
 }

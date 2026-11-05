@@ -4,7 +4,8 @@
 
 - **Claude Code and Codex integration.** Tell Claude Code or Codex "solve exercise 1" and every block of code it writes or changes is highlighted and labeled "Exercise 1". Set it up with **Color Focus: Set Up Claude Code Integration…** or **Color Focus: Set Up Codex Integration…**.
 - Highlights now follow changes made outside VS Code (Claude Code, Codex, git, other editors), also while the file is closed.
-- Code the agent changes again for a later exercise keeps its earlier label and gets the new one too.
+- Code the agent changes again for a later exercise keeps its earlier label and gets the new one too. Such a block shows its labels once ("◆ Exercise 2 ◆ Exercise 3"), each in its own color, also in the stacked blocks view.
+- Every exercise gets its own color: a new label never takes a color another label already has in the file.
 - Other programs can add highlights by dropping a small JSON file into `~/.color-focus/inbox`.
 
 ## 1.0.0
