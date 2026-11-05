@@ -186,7 +186,7 @@ function createBulk(deps) {
       const how = await vscode.window.showQuickPick(
         [
           { label: '$(trash)  Remove the highlights', description: 'color and all labels disappear', labelOnly: false },
-          { label: `$(tag)  Only remove the label "${filter.value}"`, description: 'blocks with other labels keep their color; blocks with only this label are removed', labelOnly: true },
+          { label: `$(tag)  Only remove the label "${filter.value}"`, description: 'keep the color and any other labels', labelOnly: true },
         ],
         { placeHolder: `Blocks labeled "${filter.value}"` }
       );
@@ -204,9 +204,8 @@ function createBulk(deps) {
       if (!n) continue;
       count += n;
       files++;
-      // Taking away a block's only label removes the block: every highlight has a label.
       changes[key] = labelOnly
-        ? list.map((h) => (hit(h) ? withLabels(h, labelsOf(h).filter((l) => l !== filter.value)) : h)).filter((h) => labelsOf(h).length)
+        ? list.map((h) => (hit(h) ? withLabels(h, labelsOf(h).filter((l) => l !== filter.value)) : h))
         : list.filter((h) => !hit(h));
     }
 

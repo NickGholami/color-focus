@@ -491,6 +491,11 @@
           "default": true,
           "description": "Show highlight markers in the scrollbar."
         },
+        "colorFocus.askForLabel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask for optional labels after picking a color. Press Enter to skip."
+        },
         "colorFocus.showLabels": {
           "type": "boolean",
           "default": true,

@@ -5,7 +5,6 @@
 - **Claude Code integration.** Tell Claude Code "solve exercise 1" and every block of code it writes or changes is highlighted and labeled "Exercise 1". Set it up with **Color Focus: Set Up Claude Code Integration…**.
 - Highlights now follow changes made outside VS Code (Claude Code, git, other editors), also while the file is closed.
 - Code Claude changes again for a later exercise keeps its earlier label and gets the new one too.
-- Every highlight has at least one label. Highlights saved without a label get their color's name (e.g. "Green"). The `colorFocus.askForLabel` setting is gone.
 - Other programs can add highlights by dropping a small JSON file into `~/.color-focus/inbox`.
 
 ## 1.0.0

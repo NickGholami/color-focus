@@ -46,13 +46,7 @@ function activate(ctx) {
       return up.id ? up : { ...up, id: R.newId() };
     });
   }
-  // Every highlight has a label; older ones without get their color's name.
-  for (const [key, list] of Object.entries(store)) {
-    if (list.some((h) => !R.labelsOf(h).length)) {
-      store[key] = list.map((h) => (R.labelsOf(h).length ? h : R.withLabels(h, [colorName(h.color)])));
-      scheduleSave();
-    }
-  }
+
 
   snapshots = createSnapshots(ctx.globalStorageUri.fsPath);
   bulk = createBulk({
@@ -253,7 +247,7 @@ function catchUp(doc) {
  * its line number hint, so it lands right even if the file moved a bit since.
  */
 async function addBlocks(doc, blocksToAdd, color, labels) {
-  if (!labels.length) return 0; // every highlight needs a label
+  if (!labels.length) return 0; // highlights from Claude Code (or other programs) always have a label
   catchUp(doc);
   let list = getHighlights(doc);
   let added = 0;
@@ -520,7 +514,7 @@ function knownLabels() {
 /**
  * Checklist of labels. Type a name + Enter to add it (commas add several at once),
  * or Enter on an existing label to tick/untick it. Enter on an empty box (or OK) finishes.
- * At least one label is required. Returns the chosen labels, or undefined if cancelled.
+ * Returns the chosen labels ([] = none), or undefined if cancelled.
  */
 function askLabels(current = []) {
   return new Promise((resolve) => {
@@ -531,9 +525,7 @@ function askLabels(current = []) {
     const chosen = new Set(current);
     const all = [...new Set([...current, ...knownLabels()])];
     let rebuilding = false;
-    let warned = false;
-    const titleFor = (set) =>
-      set.size ? `Labels: ${[...set].join(', ')} — press Enter on an empty box when done` : warned ? 'A highlight needs at least one label: type one + Enter' : 'Labels: type a label + Enter (at least one)';
+    const titleFor = (set) => `${set.size ? `Labels: ${[...set].join(', ')}` : 'Labels (optional)'} — press Enter on an empty box when done`;
 
     const build = () => {
       rebuilding = true;
@@ -587,11 +579,6 @@ function askLabels(current = []) {
         build();
         return;
       }
-      if (!chosen.size) {
-        warned = true;
-        build();
-        return;
-      }
       done = true;
       resolve([...chosen]);
       qp.hide();
@@ -632,8 +619,9 @@ async function highlightSelection(args) {
   const color = args.color || (await pickColor());
   if (!color) return;
 
-  let labels = R.normalizeLabels(args.labels !== undefined ? args.labels : args.label);
-  if (!labels.length) {
+  const given = args.labels !== undefined ? args.labels : args.label;
+  let labels = R.normalizeLabels(given);
+  if (given === undefined && !args.color && config().get('askForLabel', true)) {
     labels = await askLabels();
     if (labels === undefined) return;
   }
