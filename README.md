@@ -17,7 +17,7 @@ Works in every language VS Code can open: Python, JavaScript/TypeScript, Java, C
 Select lines → **Option+Tab, then H** (Windows/Linux: **Ctrl+Alt+H**) → pick a color. Or right-click → **Highlight Selection With Color…**, or use the palette button at the top right of the editor.
 
 - Highlights stay after you deselect and are saved between sessions.
-- They move with the code when you type above or inside them, and follow files you rename.
+- They move with the code when you type above or inside them, follow files you rename, and follow changes made outside VS Code (by Claude Code, git or another editor).
 - Color as many blocks as you like, with several selections at once if you want.
 - 9 built-in colors plus any custom CSS color. Colored marks in the scrollbar show where every block is.
 
@@ -54,6 +54,32 @@ Cursor in a block → **Option+Tab, then C** (Windows/Linux: **Ctrl+Alt+C**) fol
 ### Jump between blocks
 
 **Option+Tab, then ↓ / ↑** (Windows/Linux: **Ctrl+Alt+] / [**) jumps to the next or previous block. Keep pressing **↓ / ↑** to keep jumping; any other key stops. In focus mode, **Option+↓ / ↑** jumps directly.
+
+### Let Claude Code highlight the code it writes
+
+If you use [Claude Code](https://claude.com/claude-code), Color Focus can highlight every block of code Claude writes or changes, labeled with the exercise it belongs to:
+
+> **You:** solve exercise 3
+>
+> Claude writes the code, and in VS Code every new or changed block is colored and labeled **Exercise 3**.
+
+Each exercise gets its own color, and everything above works with them: focus on "Exercise 3", stack all its blocks from every file, fold them, or rename the label.
+
+**Set up once:** Command Palette → **Color Focus: Set Up Claude Code Integration…**, then restart Claude Code. Needs [Node.js](https://nodejs.org).
+
+<details>
+<summary>How it works and what it installs</summary>
+
+- A **skill** (`~/.claude/skills/color-focus`) tells Claude to turn a label on when you ask it to work on a named exercise, task or assignment, and off when it's done.
+- A **hook** in `~/.claude/settings.json` notes which lines each of Claude's edits added or changed, while a label is on. Your settings file is backed up first, and other hooks are kept.
+- Small **scripts** in `~/.color-focus/bin`. You can also use them yourself:
+  - `~/.color-focus/bin/color-focus start "Exercise 1"`: highlight Claude's changes as "Exercise 1" from now on
+  - `~/.color-focus/bin/color-focus stop`: stop
+  - `~/.color-focus/bin/color-focus add file.py 10-25 --label "Exercise 1"`: highlight lines by hand
+- The extension picks the highlights up from `~/.color-focus/inbox`, also for files that aren't open. If VS Code is closed, they're added the next time it opens.
+
+Run the same command again to reinstall or remove it.
+</details>
 
 ### Clean up and rename in bulk
 
@@ -125,6 +151,7 @@ Open the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and type "Color Focus"
 | Remove Highlights… | Remove in a file, folder or everywhere, by label or color |
 | Rename Label… | Rename a label in a file, folder or everywhere |
 | Clear All Highlights in This File | Start over in this file |
+| Set Up Claude Code Integration… | Let Claude Code highlight the code it writes (see above) |
 
 ## Settings
 
@@ -142,7 +169,8 @@ Open the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and type "Color Focus"
 ## Good to know
 
 - **Your files are never changed.** Highlights and labels are stored by VS Code on your computer, not in your code, and nothing is sent anywhere.
-- If a file is changed **outside** VS Code while it's closed (e.g. `git pull`), its highlights can land on the wrong lines.
+- Highlights are stored per computer. With two VS Code windows open at once, add highlights in one window at a time.
+- When a file is changed outside VS Code, highlights are moved by comparing the old and new text line by line. If the code inside a block was rewritten completely, the block covers whatever replaced it.
 - If you delete a highlighted block and then undo, the color doesn't come back.
 - The stacked blocks view is read-only. When blocks from different languages are stacked, it has no syntax colors.
 - If a block starts on the same line as a function, that line's fold arrow folds the block instead of the function.

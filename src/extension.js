@@ -3,6 +3,10 @@ const R = require('./ranges');
 const { createFolding } = require('./folding');
 const { createBlocksView } = require('./blocksView');
 const { createBulk } = require('./bulk');
+const D = require('./linediff');
+const { createSnapshots } = require('./snapshots');
+const { createInbox } = require('./inbox');
+const claude = require('./claude');
 
 const STORAGE_KEY = 'colorFocus.highlights';
 
@@ -24,6 +28,9 @@ let jumping = false;
 let jumpTarget = null;
 let jumpStatus;
 let bulk;
+/** Remembers the text the stored offsets refer to, so edits made outside VS Code can be followed. */
+let snapshots;
+let inbox;
 const testHooks = {}; // lets the integration test reach the open label picker
 
 // ---------- setup ----------
@@ -40,6 +47,7 @@ function activate(ctx) {
     });
   }
 
+  snapshots = createSnapshots(ctx.globalStorageUri.fsPath);
   bulk = createBulk({
     entries: () => Object.entries(store),
     replace: replaceEntries,
@@ -55,6 +63,7 @@ function activate(ctx) {
   testHooks.focus = () => focus;
   testHooks.jumping = () => jumping;
   testHooks.setFocus = (f) => setFocus(f);
+  testHooks.releaseText = (doc) => snapshots.release(doc.uri.toString(), (key) => !!store[key]);
   folding = createFolding({ getHighlights, toRange, enabled: () => config().get('foldable', true) });
   blocks = createBlocksView({
     entries: () => Object.entries(store),
@@ -89,6 +98,7 @@ function activate(ctx) {
   cmd('colorFocus.foldAll', () => folding.setFolded(true));
   cmd('colorFocus.unfoldAll', () => folding.setFolded(false));
   cmd('colorFocus.toggleFold', () => folding.toggleAtCursor());
+  cmd('colorFocus.setUpClaude', () => claude.setUp(ctx));
 
   ctx.subscriptions.push(
     statusItem,
@@ -96,7 +106,12 @@ function activate(ctx) {
     blocks,
     vscode.window.onDidChangeVisibleTextEditors(refreshAll),
     vscode.window.onDidChangeActiveTextEditor(updateStatus),
-    vscode.workspace.onDidCloseTextDocument((doc) => folding.forget(doc)),
+    vscode.workspace.onDidCloseTextDocument((doc) => {
+      folding.forget(doc);
+      // Saved to disk; when the file is opened again, catchUp compares it with what's on disk then.
+      snapshots.release(doc.uri.toString(), (key) => !!store[key]);
+    }),
+    vscode.workspace.onDidOpenTextDocument(catchUp),
     // Leave jump mode as soon as the cursor moves any other way, the text changes, or the tab changes.
     vscode.window.onDidChangeTextEditorSelection((e) => {
       if (!jumping) return;
@@ -120,7 +135,14 @@ function activate(ctx) {
   );
 
   vscode.commands.executeCommand('setContext', 'colorFocus.focusActive', false);
+  for (const doc of vscode.workspace.textDocuments) catchUp(doc);
   refreshAll();
+
+  // Highlights sent by Claude Code (or anything else) through ~/.color-focus/inbox.
+  inbox = createInbox({ addBlocks, colorForLabels });
+  ctx.subscriptions.push(inbox);
+  testHooks.inbox = inbox;
+  claude.refreshInstalledScripts(ctx);
   return { testHooks };
 }
 
@@ -142,6 +164,7 @@ function setHighlights(doc, list) {
   const key = doc.uri.toString();
   if (list.length) store[key] = list;
   else delete store[key];
+  snapshots.update(key, doc.getText());
   scheduleSave();
   refreshDocument(doc);
   folding.sync();
@@ -168,25 +191,91 @@ function scheduleSave() {
 function flushSave() {
   clearTimeout(saveTimer);
   if (context) context.globalState.update(STORAGE_KEY, store);
+  if (snapshots) snapshots.flush((key) => !!store[key]);
 }
 
 // ---------- tracking edits ----------
 
 function onTextChange(e) {
-  const key = e.document.uri.toString();
+  const doc = e.document;
+  const key = doc.uri.toString();
   let list = store[key];
   if (!list || !e.contentChanges.length) return;
+  const text = doc.getText();
+  const before = snapshots.get(key);
 
-  // VS Code orders multiple changes from the bottom of the file up, so applying them one by one is safe.
-  for (const c of e.contentChanges) {
-    list = R.applyChange(list, c.rangeOffset, c.rangeLength, c.text.length);
+  if (before !== undefined && !doc.isDirty) {
+    // Reloaded from disk after a change outside VS Code (e.g. Claude Code, git), or undone back to the saved file.
+    // VS Code reports that as one big replacement, so compare the old and new text line by line instead.
+    list = D.remapByDiff(list, before, text);
+  } else {
+    // VS Code orders multiple changes from the bottom of the file up, so applying them one by one is safe.
+    for (const c of e.contentChanges) {
+      list = R.applyChange(list, c.rangeOffset, c.rangeLength, c.text.length);
+    }
   }
   if (list.length) store[key] = list;
   else delete store[key];
+  snapshots.update(key, text);
   scheduleSave();
-  refreshDocument(e.document);
-  folding.onEdited(e.document);
+  refreshDocument(doc);
+  folding.onEdited(doc);
   blocks.refresh();
+}
+
+/** A file was opened: if it changed on disk since its highlights were saved, move them along. */
+function catchUp(doc) {
+  const key = doc.uri.toString();
+  const list = store[key];
+  if (!list || snapshots.has(key)) return;
+  const saved = snapshots.get(key); // read from disk
+  const text = doc.getText();
+  if (saved !== undefined && saved !== text) {
+    const moved = D.remapByDiff(list, saved, text);
+    if (moved.length) store[key] = moved;
+    else delete store[key];
+    scheduleSave();
+    refreshDocument(doc);
+    blocks.refresh();
+  }
+  snapshots.update(key, text);
+}
+
+/**
+ * Highlight blocks of lines given by their text (from the inbox). Each block is found near
+ * its line number hint, so it lands right even if the file moved a bit since.
+ */
+async function addBlocks(doc, blocksToAdd, color, labels) {
+  catchUp(doc);
+  let list = getHighlights(doc);
+  let added = 0;
+  for (const b of blocksToAdd) {
+    const lines = String(b.text).split('\n');
+    const first = D.findLines(doc.getText(), lines, b.line || 0);
+    if (first < 0) continue;
+    const last = first + lines.length - 1;
+    list = R.addHighlight(list, doc.offsetAt(new vscode.Position(first, 0)), doc.offsetAt(doc.lineAt(last).range.end), color, labels);
+    added++;
+  }
+  if (added) setHighlights(doc, list);
+  return added;
+}
+
+/** The color already used for this label anywhere, otherwise a palette color no other label uses yet. */
+function colorForLabels(labels) {
+  const all = Object.values(store).flat();
+  for (const l of labels) {
+    const h = all.find((x) => R.labelsOf(x).includes(l));
+    if (h) return h.color;
+  }
+  const used = new Set(all.filter((x) => R.labelsOf(x).length).map((x) => x.color));
+  const colors = palette().map((p) => p.color).filter((c) => !/^#9e9e9e$/i.test(c));
+  const free = colors.find((c) => !used.has(c));
+  if (free) return free;
+  const name = labels.join(',');
+  let hash = 0;
+  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return colors[hash % colors.length];
 }
 
 function onRename(e) {
@@ -196,8 +285,10 @@ function onRename(e) {
     for (const key of Object.keys(store)) {
       // Handles the file itself and, when a folder is renamed, every file inside it.
       if (key === oldKey || key.startsWith(prefix)) {
-        store[newUri.toString() + key.slice(oldKey.length)] = store[key];
+        const newKey = newUri.toString() + key.slice(oldKey.length);
+        store[newKey] = store[key];
         delete store[key];
+        snapshots.rename(key, newKey);
       }
     }
   }

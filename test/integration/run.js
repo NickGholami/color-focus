@@ -6,7 +6,10 @@ const root = path.resolve(__dirname, '../..');
 (async () => {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'color-focus-ws-'));
   fs.cpSync(path.join(root, 'test/fixture'), work, { recursive: true });
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'color-focus-home-'));
+  fs.mkdirSync(path.join(home, 'inbox'));
   await runTests({
+    extensionTestsEnv: { COLOR_FOCUS_HOME: home, NODE_BIN: process.execPath },
     vscodeExecutablePath: process.env.VSCODE_PATH,
     extensionDevelopmentPath: root,
     extensionTestsPath: path.join(__dirname, 'suite.js'),

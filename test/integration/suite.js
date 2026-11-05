@@ -314,5 +314,82 @@ exports.run = async () => {
     assert.deepStrictEqual([first, ed.selection.active.line], headers.slice(0, 2));
   });
 
+  // --- edits made outside VS Code (Claude Code, git) and the inbox ---
+  const fs = require('fs');
+  const { execFileSync } = require('child_process');
+  const lineSpans = (doc) => api.testHooks.highlights(doc).map((h) => { const r = api.testHooks.toRange(doc, h); return `${r.start.line}-${r.end.line}`; }).join(',');
+  const waitFor = async (fn, ms = 4000) => { const t = Date.now(); while (!fn() && Date.now() - t < ms) await sleep(100); };
+  const ext = path.join(root(), 'ext.py');
+  const L = (n, tag = 'line') => Array.from({ length: n }, (_, i) => `${tag}${i}`);
+  fs.writeFileSync(ext, L(10).join('\n') + '\n');
+
+  await check('a change on disk (above and below at once) moves the highlight with its code', async () => {
+    const ed = await open('ext.py');
+    await highlight(ed, 4, 6, '#ff5c5c', 'outside');
+    const doc = ed.document;
+    const lines = L(10);
+    fs.writeFileSync(ext, ['NEW A', 'NEW B', ...lines.slice(0, 4), ...lines.slice(4, 7), 'NEW C', ...lines.slice(7), 'NEW D'].join('\n') + '\n');
+    await waitFor(() => doc.getText().startsWith('NEW A'));
+    await sleep(300);
+    assert.strictEqual(lineSpans(doc), '6-8');
+  });
+
+  await check('a change on disk while VS Code has no copy in memory is caught up from the saved copy', async () => {
+    const doc = vscode.window.activeTextEditor.document;
+    await sleep(800); // saved copy written
+    api.testHooks.releaseText(doc);
+    const now = doc.getText().split('\n');
+    fs.writeFileSync(ext, ['TOP 1', 'TOP 2', 'TOP 3', ...now].join('\n'));
+    await waitFor(() => doc.getText().startsWith('TOP 1'));
+    await sleep(300);
+    assert.strictEqual(lineSpans(doc), '9-11');
+  });
+
+  const home = process.env.COLOR_FOCUS_HOME;
+  await check('a request in the inbox highlights the lines it names, with a color for its label', async () => {
+    const f = path.join(root(), 'inbox.py');
+    fs.writeFileSync(f, 'a = 1\n\ndef solve():\n    return 42\n\nb = 2\n');
+    fs.writeFileSync(path.join(home, 'inbox', '000000000000001-test.json'), JSON.stringify({ file: f, labels: ['Exercise 7'], blocks: [{ line: 0, text: 'def solve():\n    return 42' }] }));
+    await api.testHooks.inbox.flush();
+    const doc = await vscode.workspace.openTextDocument(f);
+    await waitFor(() => api.testHooks.highlights(doc).length > 0);
+    assert.strictEqual(lineSpans(doc), '2-3');
+    const h = api.testHooks.highlights(doc)[0];
+    assert.deepStrictEqual(h.labels, ['Exercise 7']);
+    assert.ok(h.color && !/9e9e9e/i.test(h.color));
+    assert.deepStrictEqual(fs.readdirSync(path.join(home, 'inbox')), [], 'request removed');
+  });
+
+  await check('Claude Code end to end: hook + file edits on disk → highlighted, labeled, in open and unopened files', async () => {
+    const claudeDir = path.join(__dirname, '../../claude');
+    const node = process.env.NODE_BIN;
+    const env = { ...process.env, ELECTRON_RUN_AS_NODE: '1' };
+    const run = (script, args, input) => execFileSync(node, [path.join(claudeDir, script), ...args], { env, cwd: root(), input, encoding: 'utf8' });
+    run('color-focus.js', ['start', 'Exercise 2']);
+    const edit = (file, text) => {
+      const base = { session_id: 't', cwd: root(), tool_name: 'Edit', tool_input: { file_path: file } };
+      run('hook.js', [], JSON.stringify({ ...base, hook_event_name: 'PreToolUse' }));
+      fs.writeFileSync(file, text);
+      run('hook.js', [], JSON.stringify({ ...base, hook_event_name: 'PostToolUse' }));
+    };
+    // An open file: Claude changes the inside of a function
+    const f1 = path.join(root(), 'inbox.py');
+    const doc1 = await vscode.workspace.openTextDocument(f1);
+    edit(f1, 'a = 1\n\ndef solve():\n    return 42\n\nb = 2\n\ndef extra(x):\n    y = x * 2\n    return y\n');
+    // A file VS Code has never opened
+    const f2 = path.join(root(), 'fresh.py');
+    edit(f2, 'import math\n\nprint(math.pi)\n');
+    run('color-focus.js', ['stop']);
+    await api.testHooks.inbox.flush();
+    await waitFor(() => api.testHooks.highlights(doc1).length > 1);
+    assert.strictEqual(lineSpans(doc1), '2-3,7-9');
+    const ex2 = api.testHooks.highlights(doc1)[1];
+    assert.deepStrictEqual(ex2.labels, ['Exercise 2']);
+    assert.notStrictEqual(ex2.color, api.testHooks.highlights(doc1)[0].color, 'a new label gets its own color');
+    const doc2 = await vscode.workspace.openTextDocument(f2);
+    assert.strictEqual(lineSpans(doc2), '0-2');
+    assert.strictEqual(api.testHooks.highlights(doc2)[0].color, ex2.color, 'same label, same color');
+  });
+
   require('fs').writeFileSync(path.join(require('os').tmpdir(), 'color-focus-results.txt'), results.join('\n') + '\n');
 };
