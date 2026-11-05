@@ -14,7 +14,7 @@ const GREEN = '#6bcb77', BLUE = '#4d96ff', ORANGE = '#ff9f43', PURPLE = '#9b5de5
 
 exports.run = async () => {
   while (!fs.existsSync(path.join(process.env.CF_SYNC, 'logo-done'))) await sleep(200);
-  await vscode.extensions.getExtension('nickspc.color-focus').activate();
+  await vscode.extensions.getExtension('NickGholami.color-focus').activate();
   const ws = vscode.workspace.workspaceFolders[0].uri.fsPath;
   const open = async (f) => {
     const ed = await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(path.join(ws, 'week3', f)));
@@ -79,7 +79,7 @@ exports.run = async () => {
 
   async function api_setFocusLabel(label) {
     // Same as picking the label in the focus list.
-    const ext = vscode.extensions.getExtension('nickspc.color-focus').exports;
+    const ext = vscode.extensions.getExtension('NickGholami.color-focus').exports;
     ext.testHooks.setFocus({ kind: 'label', value: label });
   }
 };

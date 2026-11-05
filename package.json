@@ -3,7 +3,7 @@
   "displayName": "Color Focus",
   "description": "Highlight blocks of code with colors and labels, then focus on them, fold them, or stack them from every file into one view. Works in every language.",
   "version": "1.0.0",
-  "publisher": "nickspc",
+  "publisher": "NickGholami",
   "license": "MIT",
   "repository": {
     "type": "git",

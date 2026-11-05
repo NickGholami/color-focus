@@ -11,7 +11,7 @@ async function press(second, hold) {
 }
 exports.run = async () => {
   const out = [];
-  const api = await vscode.extensions.getExtension('nickspc.color-focus').activate();
+  const api = await vscode.extensions.getExtension('NickGholami.color-focus').activate();
   const doc = await vscode.workspace.openTextDocument(path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, 'rm.txt'));
   const ed = await vscode.window.showTextDocument(doc);
   await sleep(1500);

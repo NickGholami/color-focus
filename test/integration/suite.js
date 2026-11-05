@@ -27,7 +27,7 @@ exports.run = async () => {
   const check = async (name, fn) => {
     try { await fn(); results.push(`PASS ${name}`); } catch (e) { results.push(`FAIL ${name}: ${e.message}`); }
   };
-  const api = await vscode.extensions.getExtension('nickspc.color-focus').activate();
+  const api = await vscode.extensions.getExtension('NickGholami.color-focus').activate();
 
   // --- folding ---
   const py = await open('a.py');
