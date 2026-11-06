@@ -120,12 +120,12 @@ test('addLabeled: same label again changes nothing; line breaks between blocks a
 // --- blocks made of several pieces (the grades.py run with Codex: 0-based lines) ---
 const ex1 = '#ff9f43', ex2 = '#ffd93d', ex3 = '#2ec4b6';
 const gradesPieces = [
-  { startLine: 14, endLine: 19, labels: ['Exercise 1'], color: ex1 },
-  { startLine: 24, endLine: 25, labels: ['Exercise 3'], color: ex3 },
-  { startLine: 35, endLine: 36, labels: ['Exercise 2'], color: ex2 }, // best_student, written for exercise 2
-  { startLine: 37, endLine: 42, labels: ['Exercise 2', 'Exercise 3'], color: ex3 }, // ...partly rewritten for 3
-  { startLine: 50, endLine: 55, labels: ['Exercise 3'], color: ex3 }, // print_report loop
-  { startLine: 56, endLine: 59, labels: ['Exercise 2', 'Exercise 3'], color: ex3 },
+  { startLine: 14, endLine: 19, labels: ['Exercise 1'], color: ex1, agent: true },
+  { startLine: 24, endLine: 25, labels: ['Exercise 3'], color: ex3, agent: true },
+  { startLine: 35, endLine: 36, labels: ['Exercise 2'], color: ex2, agent: true }, // best_student, written for exercise 2
+  { startLine: 37, endLine: 42, labels: ['Exercise 2', 'Exercise 3'], color: ex3, agent: true }, // ...partly rewritten for 3
+  { startLine: 50, endLine: 55, labels: ['Exercise 3'], color: ex3, agent: true }, // print_report loop
+  { startLine: 56, endLine: 59, labels: ['Exercise 2', 'Exercise 3'], color: ex3, agent: true },
 ];
 
 test('joinTouching: touching pieces sharing a label are one block, each label once and in order', () => {
@@ -138,11 +138,16 @@ test('joinTouching: touching pieces sharing a label are one block, each label on
   ]);
 });
 
-test('joinTouching: pieces with no label in common, or with a free line between, stay apart', () => {
-  const a = { startLine: 0, endLine: 2, labels: ['A'] };
-  const b = { startLine: 3, endLine: 4, labels: ['B'] };
-  const c = { startLine: 6, endLine: 7, labels: ['B'] };
+test('joinTouching: pieces with no label in common, with a free line between, or made by hand, stay apart', () => {
+  const a = { startLine: 0, endLine: 2, labels: ['A'], agent: true };
+  const b = { startLine: 3, endLine: 4, labels: ['B'], agent: true };
+  const c = { startLine: 6, endLine: 7, labels: ['B'], agent: true };
   assert.strictEqual(R.joinTouching([a, b, c], R.sharesLabel).length, 3);
+  // Blocks highlighted by hand stay apart even when they touch and share a label
+  const m1 = { startLine: 0, endLine: 2, labels: ['A'] };
+  const m2 = { startLine: 3, endLine: 4, labels: ['A', 'B'] };
+  assert.strictEqual(R.joinTouching([m1, m2], R.sharesLabel).length, 2);
+  assert.strictEqual(R.joinTouching([{ ...m1, agent: true }, m2], R.sharesLabel).length, 2);
   assert.deepStrictEqual(R.joinTouching([c, a, b]).map((x) => [x.startLine, x.endLine]), [[0, 4], [6, 7]]); // no rule: touching only
   assert.deepStrictEqual(R.sortLabels(['Exercise 10', 'exercise 2', 'Exercise 1']), ['Exercise 1', 'exercise 2', 'Exercise 10']);
 });

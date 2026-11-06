@@ -65,7 +65,8 @@ function activate(ctx) {
   testHooks.jumping = () => jumping;
   testHooks.setFocus = (f) => setFocus(f);
   testHooks.releaseText = (doc) => snapshots.release(doc.uri.toString(), (key) => !!store[key]);
-  folding = createFolding({ getHighlights, toRange, enabled: () => config().get('foldable', true) });
+  // Folding works on whole blocks (several pieces can make one block).
+  folding = createFolding({ getHighlights: (doc) => blocksOf(doc), toRange, enabled: () => config().get('foldable', true) });
   blocks = createBlocksView({
     entries: () => Object.entries(store),
     toRange,
@@ -257,7 +258,10 @@ async function addBlocks(doc, blocksToAdd, color, labels) {
     const first = D.findLines(doc.getText(), lines, b.line || 0);
     if (first < 0) continue;
     const last = first + lines.length - 1;
-    list = R.addLabeled(list, doc.offsetAt(new vscode.Position(first, 0)), doc.offsetAt(doc.lineAt(last).range.end), color, labels);
+    const start = doc.offsetAt(new vscode.Position(first, 0));
+    const end = doc.offsetAt(doc.lineAt(last).range.end);
+    // Marked as the agent's, so its pieces show as one block (see R.sharesLabel).
+    list = R.addLabeled(list, start, end, color, labels).map((h) => (h.start < end && h.end > start ? { ...h, agent: true } : h));
     added++;
   }
   if (added) setHighlights(doc, list);
@@ -435,7 +439,7 @@ function renderEditor(editor) {
     const colorOf = R.labelColors(list);
     const pieces = visible.filter((h) => R.labelsOf(h).length).map((h) => {
       const r = toRange(doc, h);
-      return { startLine: r.start.line, endLine: r.end.line, labels: R.labelsOf(h), color: h.color };
+      return { startLine: r.start.line, endLine: r.end.line, labels: R.labelsOf(h), color: h.color, agent: h.agent };
     });
     for (const block of R.joinTouching(pieces, R.sharesLabel)) {
       const end = doc.lineAt(block.startLine).range.end;
@@ -692,16 +696,21 @@ async function setLabelAtCursor() {
   if (!editor) return;
   const doc = editor.document;
   const list = getHighlights(doc);
-  const pos = editor.selection.active;
-  const hit = list.filter((h) => inFocus(h) && covers(doc, h, pos));
-  if (!hit.length) {
+  const [block] = blocksAt(doc, editor.selection.active);
+  if (!block) {
     vscode.window.showInformationMessage('Color Focus: put the cursor inside a highlight to label it.');
     return;
   }
 
-  const labels = await askLabels(R.labelsOf(hit[0]));
+  // A block of several pieces: labels ticked off go from every piece, new ones are added to every piece.
+  const current = R.labelsOf(block);
+  const labels = await askLabels(current);
   if (labels === undefined) return;
-  setHighlights(doc, list.map((h) => (hit.includes(h) ? R.withLabels(h, labels) : h)));
+  const removed = current.filter((l) => !labels.includes(l));
+  const added = labels.filter((l) => !current.includes(l));
+  const relabel = (h) =>
+    block.pieces.length === 1 ? labels : [...R.labelsOf(h).filter((l) => !removed.includes(l)), ...added];
+  setHighlights(doc, list.map((h) => (block.pieces.includes(h) ? R.withLabels(h, relabel(h)) : h)));
 }
 
 function removeAtCursor() {
@@ -719,8 +728,9 @@ function removeAtCursor() {
       if (t) list = R.subtract(list, t.start, t.end);
       erased = true;
     } else {
-      // No selection: remove the whole highlight under the cursor.
-      list = list.filter((h) => !covers(doc, h, sel.active));
+      // No selection: remove the whole block under the cursor (all its pieces).
+      const gone = new Set(blocksOf(doc, list).filter((b) => b.pieces.some((h) => covers(doc, h, sel.active))).flatMap((b) => b.pieces));
+      list = list.filter((h) => !gone.has(h));
     }
   }
 
@@ -805,6 +815,35 @@ function sortedVisible(doc) {
     .sort((a, b) => a.start - b.start);
 }
 
+/**
+ * Highlights as people see them: touching pieces that share a label are one block (code from
+ * "Exercise 2" partly changed again for "Exercise 3"). Each block: { id, start, end, color, labels, pieces }.
+ * Jumping, folding, listing and the cursor commands work on these.
+ */
+function blocksOf(doc, list = getHighlights(doc)) {
+  const pieces = list.map((h) => {
+    const r = toRange(doc, h);
+    return { startLine: r.start.line, endLine: r.end.line, labels: R.labelsOf(h), agent: h.agent, h };
+  });
+  return R.joinTouching(pieces, R.sharesLabel).map((b) => {
+    const hs = b.pieces.map((p) => p.h);
+    const block = {
+      id: hs.map((h) => h.id).join('+'),
+      start: Math.min(...hs.map((h) => h.start)),
+      end: Math.max(...hs.map((h) => h.end)),
+      color: hs[0].color,
+      pieces: hs,
+    };
+    if (b.labels.length) block.labels = b.labels;
+    return block;
+  });
+}
+
+/** The visible blocks under the cursor. */
+function blocksAt(doc, pos) {
+  return blocksOf(doc, getHighlights(doc).filter(inFocus)).filter((b) => b.pieces.some((h) => covers(doc, h, pos)));
+}
+
 function jump(direction) {
   const editor = vscode.window.activeTextEditor;
   if (!editor) return;
@@ -814,8 +853,8 @@ function jump(direction) {
   const spans =
     doc.uri.scheme === blocks.SCHEME
       ? blocks.spans(doc)
-      : sortedVisible(doc).map((h) => {
-          const r = toRange(doc, h);
+      : blocksOf(doc, sortedVisible(doc)).map((b) => {
+          const r = toRange(doc, b);
           return { start: r.start.line, end: r.end.line };
         });
   if (!spans.length) {
@@ -872,7 +911,7 @@ async function listHighlights() {
   const editor = vscode.window.activeTextEditor;
   if (!editor) return;
   const doc = editor.document;
-  const list = sortedVisible(doc);
+  const list = blocksOf(doc, sortedVisible(doc));
   if (!list.length) {
     vscode.window.showInformationMessage('Color Focus: no highlights in this file.');
     return;

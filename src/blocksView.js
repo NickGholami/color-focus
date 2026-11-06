@@ -78,11 +78,11 @@ function createBlocksView(deps) {
     const [open, close] = COMMENTS[language] || ['', ''];
     const comment = (text) => `${open}${text}${close}`;
 
-    // Touching pieces are one block (e.g. "Exercise 2" code partly changed again for "Exercise 3").
+    // Touching pieces an agent made are one block (e.g. "Exercise 2" code partly changed again for "Exercise 3").
     for (const f of files) {
       const pieces = f.blocks.map((h) => {
         const r = deps.toRange(f.doc, h);
-        return { startLine: r.start.line, endLine: r.end.line, labels: labelsOf(h), color: h.color };
+        return { startLine: r.start.line, endLine: r.end.line, labels: labelsOf(h), color: h.color, agent: h.agent };
       });
       f.blocks = joinTouching(pieces, sharesLabel).map((b) => ({ from: b.startLine, to: b.endLine, labels: b.labels, color: b.pieces[0].color }));
     }

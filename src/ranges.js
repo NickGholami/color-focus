@@ -227,8 +227,12 @@ function joinTouching(pieces, joinable = () => true) {
   return blocks;
 }
 
-/** For joinTouching: only join pieces that share a label with the block. */
-const sharesLabel = (block, piece) => labelsOf(piece).some((l) => block.labels.includes(l));
+/**
+ * For joinTouching: join pieces an AI agent made (`agent: true`) that share a label with the block.
+ * Blocks people highlight by hand stay apart, even when they touch.
+ */
+const sharesLabel = (block, piece) =>
+  !!piece.agent && !!block.pieces[0].agent && labelsOf(piece).some((l) => block.labels.includes(l));
 
 /**
  * The color of each label among these highlights: the color of its own highlights (only that label),

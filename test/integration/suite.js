@@ -408,6 +408,53 @@ exports.run = async () => {
     assert.deepStrictEqual(got, ['0-0:Exercise 2', '1-1:Exercise 2+Exercise 3']);
   });
 
+  await check('a block from exercise 2 partly changed for exercise 3 jumps, folds and is removed as one block', async () => {
+    const f = path.join(root(), 'joined.py');
+    const text = 'x = 0\n\ndef best():\n    """Best."""\n    a = 1\n    return a\n\ny = 0\n';
+    fs.writeFileSync(f, text);
+    const lines = text.split('\n');
+    const req = (labels, from, to, n) => fs.writeFileSync(path.join(home, 'inbox', `00000000000001${n}-t.json`), JSON.stringify({ file: f, labels, blocks: [{ line: from, text: lines.slice(from, to + 1).join('\n') }] }));
+    req(['Exercise 2'], 2, 5, 1);
+    await api.testHooks.inbox.flush();
+    req(['Exercise 3'], 4, 5, 2);
+    await api.testHooks.inbox.flush();
+    const ed = await open('joined.py');
+    const doc = ed.document;
+    await waitFor(() => api.testHooks.highlights(doc).length === 2);
+    const got = api.testHooks.highlights(doc).map((h) => { const r = api.testHooks.toRange(doc, h); return `${r.start.line}-${r.end.line}:${h.labels.join('+')}`; });
+    assert.deepStrictEqual(got, ['2-3:Exercise 2', '4-5:Exercise 2+Exercise 3']);
+
+    // Jumping stops once at the block, not again where the exercise 3 part starts
+    ed.selection = new vscode.Selection(0, 0, 0, 0);
+    const stops = [];
+    for (let i = 0; i < 2; i++) {
+      await vscode.commands.executeCommand('colorFocus.next'); await sleep(300);
+      stops.push(vscode.window.activeTextEditor.selection.active.line);
+    }
+    assert.deepStrictEqual(stops, [2, 2]);
+    // Focused on exercise 3, only its part is a stop
+    api.testHooks.setFocus({ kind: 'label', value: 'Exercise 3' });
+    ed.selection = new vscode.Selection(0, 0, 0, 0);
+    await vscode.commands.executeCommand('colorFocus.next'); await sleep(300);
+    assert.strictEqual(vscode.window.activeTextEditor.selection.active.line, 4);
+    api.testHooks.setFocus(null);
+    await sleep(300);
+
+    // Folding from the first line folds the whole block
+    ed.selection = new vscode.Selection(2, 0, 2, 0);
+    await vscode.commands.executeCommand('colorFocus.toggleFold'); await sleep(600);
+    const shown = (line) => ed.visibleRanges.some((r) => line >= r.start.line && line <= r.end.line);
+    results.push('  joined fold visible: ' + vis(ed));
+    assert.ok(shown(2) && !shown(3) && !shown(5) && shown(7), 'whole block folded: ' + vis(ed));
+    await vscode.commands.executeCommand('colorFocus.toggleFold'); await sleep(600);
+    assert.ok(shown(4), 'unfolded again');
+
+    // Remove at the cursor (no selection) removes the whole block
+    ed.selection = new vscode.Selection(2, 0, 2, 0);
+    await vscode.commands.executeCommand('colorFocus.removeAtCursor'); await sleep(400);
+    assert.strictEqual(api.testHooks.highlights(doc).length, 0);
+  });
+
   await check('inbox requests without a label are ignored', async () => {
     const f = path.join(root(), 'nolabel.py');
     fs.writeFileSync(f, 'a = 1\n');
